@@ -1,0 +1,31 @@
+# pyproject.toml
+
+[project]
+name = "scrybe"
+version = "1.0.0"
+description = "A text-based programming language that compiles to Scratch"
+readme = "README.md"
+authors = [
+    {name = "Bradley Pierce", email = "bituvocoding@gmail.com"}
+]
+license = {file = "LICENSE"}
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Compilers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12"
+]
+keywords = ["scratch", "compiler", "text-based", "python"]
+dependencies = ["ScratchGen", "ply", "colorama"]
+requires-python = ">=3.12"
+
+[project.urls]
+Homepage = "https://github.com/ScrybeLang/Scrybe"
+Issues = "https://github.com/ScrybeLang/Scrybe/issues"
+
+[build-system]
+requires = ["setuptools", "ScratchGen", "ply", "colorama"]
+build-backend = "setuptools.build_meta"
