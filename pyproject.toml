@@ -1,7 +1,7 @@
 # pyproject.toml
 
 [project]
-name = "scrybe"
+name = "ScrybeLang"
 version = "1.0.0"
 description = "A text-based programming language that compiles to Scratch"
 readme = "README.md"
@@ -21,6 +21,9 @@ classifiers = [
 keywords = ["scratch", "compiler", "text-based", "python"]
 dependencies = ["ScratchGen", "ply", "colorama"]
 requires-python = ">=3.12"
+
+[project.scripts]
+scrybe = "scrybe.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/ScrybeLang/Scrybe"

@@ -61,7 +61,7 @@ def get_arguments():
         "color":           color
     }
 
-def compile_project():
+def main():
     arguments = get_arguments()
     project_path    = arguments["project path"]
     output_filename = arguments["output filename"]
@@ -120,4 +120,4 @@ def compile_project():
     info(f'Project saved as "{filename}"')
 
 if __name__ == "__main__":
-    compile_project()
+    main()
