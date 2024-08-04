@@ -9,6 +9,9 @@ import sys
 def get_arguments():
     provided_arguments = sys.argv[1:]
 
+    if not provided_arguments:
+        error("No arguments provided", exit=True)
+
     # Get project directory (always the first argument)
     provided_path = provided_arguments[0]
     if not os.path.exists(provided_path):
@@ -95,20 +98,20 @@ def main():
     debug("Searching for sprite folder")
     if not os.path.exists("sprites"):
         warn("Sprites folder not found")
+    else:
+        debug("Gathering sprites")
+        sprite_paths = glob.glob("sprites/*.sbs")
+        if not sprite_paths:
+            warn("Sprites folder exists but contains no sprites")
 
-    debug("Gathering sprites")
-    sprite_paths = glob.glob("sprites/*.sbs")
-    if not sprite_paths:
-        warn("Sprites folder exists but contains no sprites")
-
-    debug("Adding sprites")
-    for filepath in sprite_paths:
-        debug(f'Adding sprite from "{filepath}"')
-        sprite_name = projectbuilder.add_sprite(
-            parse_script(filepath),
-            os.path.basename(filepath)
-        )
-        info(f'Added sprite "{sprite_name}"')
+        debug("Adding sprites")
+        for filepath in sprite_paths:
+            debug(f'Adding sprite from "{filepath}"')
+            sprite_name = projectbuilder.add_sprite(
+                parse_script(filepath),
+                os.path.basename(filepath)
+            )
+            info(f'Added sprite "{sprite_name}"')
 
     debug("Building project")
     projectbuilder.build()
