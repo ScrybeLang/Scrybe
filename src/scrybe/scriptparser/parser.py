@@ -233,7 +233,8 @@ def p_in_place_assignment(prod):
                            | variable TIMESASSIGN expression
                            | variable DIVIDEDBYASSIGN expression
                            | variable MODULOASSIGN expression
-                           | variable EXPONENTASSIGN expression"""
+                           | variable EXPONENTASSIGN expression
+                           | variable CONCATASSIGN expression"""
     prod[0] = {
         "lexpos":    prod[1]["lexpos"],
         "type":      "in-place assignment",

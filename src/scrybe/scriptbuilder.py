@@ -328,7 +328,9 @@ class ScriptBuilder:
                 current_script.extend(self.get_variable_setter(statement))
 
             if statement["type"] == "in-place assignment":
-                operation = translations.operations[statement["operation"][:-1]] # Cut off the trailing equals sign
+                operation_type = statement["operation"][:-1] # Cut off the trailing equals sign
+                operation = Join if operation_type == ".." else translations.operations[operation_type]
+
                 to_assign = statement["variable"]
                 operand = self.translate_expression(statement["operand"])
 
