@@ -424,13 +424,17 @@ class ScriptBuilder:
 
                 self.exit_scope()
 
-            if statement["type"] == "return" and self.current_function_building:
-                return_expression = statement["expression"]
-                if return_expression:
-                    function_output_variable = self.functions[self.current_function_building]["output"]
-                    return_expression = self.translate_expression(return_expression)
+            if statement["type"] == "return":
+                if self.current_function_building:
+                    # Returning from a function
+                    return_expression = statement["expression"]
+                    if return_expression:
+                        function_output_variable = self.functions[self.current_function_building]["output"]
+                        return_expression = self.translate_expression(return_expression)
 
-                    current_script.append(SetVariable(function_output_variable, return_expression))
+                        current_script.append(SetVariable(function_output_variable, return_expression))
+
+                # Returning from a hat
                 current_script.append(Stop(THIS_SCRIPT))
 
         if modify_scope:
