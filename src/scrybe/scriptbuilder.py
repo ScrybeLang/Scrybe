@@ -149,10 +149,7 @@ class ScriptBuilder:
             if isinstance(one, str) and isinstance(two, str):
                 return one + two
 
-            return Join(
-                self.translate_expression(expression["one"]),
-                self.translate_expression(expression["two"])
-            )
+            return Join(one, two)
 
     def translate_boolean(self, expression):
         if isinstance(expression, bool):
