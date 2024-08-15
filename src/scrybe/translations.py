@@ -3,17 +3,37 @@ from ScratchGen import constants
 from ScratchGen.datacontainer import List
 import operator
 
+def _chain_multiply(base, exponent):
+    if exponent == 2:
+        # x ** 2 == x * x
+        return Multiply(base, base)
+    return Multiply(_chain_multiply(base, exponent - 1), base)
+
 # Unfortunately, Scratch has no first-party implementation of exponentiation,
 # so we do some tricky math workarounds
 def _exponent_function(base, exponent):
+    base_numeric = isinstance(base, (int, float))
+    exponent_numeric = isinstance(exponent, (int, float))
+
+    # Simple cases
+    if not base_numeric and exponent_numeric:
+        if exponent == -1:  return Divide(1, base)              # x ** -1 == 1 / x
+        if exponent == 0:   return 1                            # x ** 0 == 1
+        if exponent == 0.5: return Operation(SQUARE_ROOT, base) # x ** 0.5 == sqrt(x)
+        if exponent == 1:   return base                         # x ** 1 == x
+
+    # For cases when it would take less blocks just to multiply it manually
+    if isinstance(exponent, int) and 0 < exponent <= 5:
+        return _chain_multiply(base, exponent)
+
     # For literal numbers (same as `operator.pow` but we still need support for other expressions)
-    if isinstance(base, (int, float)) and isinstance(exponent, (int, float)):
+    if base_numeric and exponent_numeric:
         return base ** exponent
 
     # The first tricky math part; this only works with positive bases but any exponent works
     exponent_part = Operation(TEN_TO_THE, Multiply(exponent, Operation(LOGARITHM, Operation(ABSOLUTE, base))))
 
-    if isinstance(base, (int, float)) and base >= 0: # If the base is a positive literal number
+    if base_numeric and base >= 0: # If the base is a positive literal number
         return exponent_part
 
     # The second tricky math part (I engineered this myself!); this calculates the correct sign multiplier (-1 or 1)
