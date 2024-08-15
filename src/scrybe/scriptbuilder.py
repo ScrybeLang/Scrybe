@@ -4,6 +4,7 @@ from ScratchGen.datacontainer import List
 from . import translations
 from . import utils
 from .logger import debug, info, warn, error
+from inspect import signature
 
 class ScriptBuilder:
     def __init__(self, projectbuilder, statements, target):
@@ -134,6 +135,8 @@ class ScriptBuilder:
             resolution_attempt = translations.resolve_function_reporter(function)
             if not resolution_attempt:
                 error(function["lexpos"], "Reporting function not found")
+
+            self.check_argument_count(lexpos, resolution_attempt, arguments)
 
             if resolution_attempt.__name__ == "TouchingObject":
                 target = arguments[0]
@@ -310,6 +313,17 @@ class ScriptBuilder:
             variable_object = dict_entry["object"]
             return function(*arguments, variable_object)
 
+    def check_argument_count(self, lexpos, function_object, given_arguments):
+        expected_argument_count = len(signature(function_object).parameters)
+        given_argument_count = len(given_arguments)
+
+        if given_argument_count != expected_argument_count:
+            error(lexpos, (
+                f"Expected {expected_argument_count} argument"
+                f"{"" if expected_argument_count == 1 else "s"}, "
+                f"got {given_argument_count}"
+            ))
+
     # Inner statements: what are under a hat block/function prototype
     def build_inner_statements(self, statements, modify_scope=True):
         if modify_scope:
@@ -376,6 +390,7 @@ class ScriptBuilder:
                     broadcast_function = BroadcastAndWait if "Wait" in class_name else Broadcast
                     current_script.append(broadcast_function(broadcast_object))
                 else:
+                    self.check_argument_count(lexpos, callable_object, arguments)
                     current_script.append(callable_object(*arguments))
 
             if statement["type"] == "if":
