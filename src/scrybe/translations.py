@@ -23,20 +23,6 @@ def _exponent_function(base, exponent):
     sign_part = Add(Multiply(Multiply(LessThan(Modulo(Add(exponent, 1), 2), 1), Multiply(-1, LessThan(base, 0))), 2), 1)
     return Multiply(exponent_part, sign_part)
 
-operations = {
-    "+":   operator.add,
-    "-":   operator.sub,
-    "*":   operator.mul,
-    "/":   operator.truediv,
-    "%":   operator.mod,
-    "**":  _exponent_function,
-    "<":   operator.lt,
-    ">":   operator.gt,
-    "<=":  operator.le,
-    ">=":  operator.ge,
-    "==":  operator.eq
-}
-
 def _contains(sub_item, item):
     if isinstance(item, List):
         return ListContains(item, sub_item)
@@ -54,6 +40,28 @@ number_conditions = {
     "<=":  lambda x, y: Not(GreaterThan(x, y)),
     ">=":  lambda x, y: Not(LessThan(x, y)),
     "==":  Equals
+}
+
+# For if the left operand is a number
+# This is needed because only reporters have overridden math dunder methods
+def _make_lambda(original_function, scratchgen_function):
+    return lambda x, y: (
+        scratchgen_function(x, y) if isinstance(x, (int, float))
+            else original_function(x, y)
+    )
+
+operations = {
+    "+":   _make_lambda(operator.add,     Add),
+    "-":   _make_lambda(operator.sub,     Subtract),
+    "*":   _make_lambda(operator.mul,     Multiply),
+    "/":   _make_lambda(operator.truediv, Divide),
+    "%":   _make_lambda(operator.mod,     Modulo),
+    "**":  _exponent_function,
+    "<":   _make_lambda(operator.lt,      number_conditions["<"]),
+    ">":   _make_lambda(operator.gt,      number_conditions[">"]),
+    "<=":  _make_lambda(operator.le,      number_conditions["<="]),
+    ">=":  _make_lambda(operator.ge,      number_conditions[">="]),
+    "==":  _make_lambda(operator.eq,      number_conditions["=="])
 }
 
 reporters = {
