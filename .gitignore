@@ -1,3 +1,7 @@
+# Testing
+project/
+project.sb3
+
 # PLY
 *.out
 parsetab.py

@@ -20,24 +20,27 @@ class ScriptBuilder:
 
         # Functions: {
         #     <function name>: {
-        #         "callable": <callable object>,
-        #         "output":   <output variable>
-        #     }
+        #         "callable":   <callable object>,
+        #         "parameters": <parameter count>,
+        #         "output":     <output variable>
+        #     },
+        #     ...
         # }
         self.functions = {}
         self.current_function_building = "" # Name of the function currently being built
         self.current_script_reference = [] # Python list references son epicas
         self.scripts = [] # 2D list of block objects
 
-        self.is_clone_variable = self.target.createVariable("sg_is_clone", "false")
+        if self.is_sprite:
+            self.is_clone_variable = self.target.createVariable("sg_is_clone", "false")
 
-        self.scripts.extend([[
-            WhenFlagClicked(),
-            SetVariable(self.is_clone_variable, "false")
-        ], [
-            WhenStartAsClone(),
-            SetVariable(self.is_clone_variable, "true")
-        ]])
+            self.scripts.extend([[
+                WhenFlagClicked(),
+                SetVariable(self.is_clone_variable, "false")
+            ], [
+                WhenStartAsClone(),
+                SetVariable(self.is_clone_variable, "true")
+            ]])
 
     def translate_expression(self, expression):
         if isinstance(expression, bool):
@@ -106,14 +109,15 @@ class ScriptBuilder:
                 return variable_attribute
 
             if expression["object"] == "this" and expression["attribute"] == "is_clone":
+                if not self.is_sprite:
+                    code_error("This attribute can only be used in a sprite")
                 return self.is_clone_variable
 
-            resolution_attempt = translations.resolve_reporter(expression)
-            if not resolution_attempt:
-                set_lexpos(expression["lexpos"])
-                code_error("Attribute not found")
-
-            return resolution_attempt()
+            return self.get_builtin(
+                expression,
+                translations.resolve_reporter,
+                "attribute"
+            )()
 
         if expression["type"] == "function call":
             function = expression["function"]
@@ -122,9 +126,11 @@ class ScriptBuilder:
             # Check if is a custom function first
             if function["type"] == "variable" and function["variable"] in self.functions:
                 function_name = function["variable"]
+                dict_entry = self.functions[function_name]
 
-                callable_object = self.functions[function_name]["callable"]
-                output_object = self.functions[function_name]["output"]
+                self.argument_error_message(0, dict_entry["parameters"], len(arguments))
+                callable_object = dict_entry["callable"]
+                output_object = dict_entry["output"]
 
                 self.current_script_reference.append(callable_object(*arguments))
                 return output_object
@@ -134,19 +140,19 @@ class ScriptBuilder:
             if variable_attribute:
                 return variable_attribute
 
-            resolution_attempt = translations.resolve_function_reporter(function)
-            if not resolution_attempt:
-                set_lexpos(function["lexpos"])
-                code_error("Reporting function not found")
+            callable_object = self.get_builtin(
+                function,
+                translations.resolve_function_reporter,
+                "function"
+            )
+            self.check_argument_count(callable_object, arguments)
 
-            self.check_argument_count(resolution_attempt, arguments)
-
-            if resolution_attempt.__name__ == "TouchingObject":
+            if callable_object.__name__ == "TouchingObject":
                 target = arguments[0]
                 if target in self.projectbuilder.sprites:
-                    return resolution_attempt(self.projectbuilder.sprites[target])
+                    return callable_object(self.projectbuilder.sprites[target]["object"])
 
-            return resolution_attempt(*arguments)
+            return callable_object(*arguments)
 
         if expression["type"] == "concatenation":
             one = self.translate_expression(expression["one"])
@@ -286,11 +292,13 @@ class ScriptBuilder:
 
         # For things like `this.size = 50`
         if to_assign["type"] == "get attribute":
-            resolution_attempt = translations.resolve_setter(to_assign)
-            if not resolution_attempt:
-                code_error("Setter not found")
-
-            return [resolution_attempt(variable_value)]
+            return [
+                self.get_builtin(
+                    to_assign,
+                    translations.resolve_setter,
+                    "attribute"
+                )(variable_value)
+            ]
 
     # Get either a block or reporter from a variable function or attribute
     # For example, `my_list.length` translates to about `ListLength(my_list)`
@@ -319,15 +327,42 @@ class ScriptBuilder:
             return function(*arguments, variable_object)
 
     def check_argument_count(self, function_object, given_arguments):
-        expected_argument_count = len(signature(function_object).parameters)
+        parameters = [i for i in signature(function_object).parameters.values()]
+        required_parameters = len([i for i in parameters if i.default == i.empty])
+        optional_parameters = len(parameters) - required_parameters
         given_argument_count = len(given_arguments)
 
-        if given_argument_count != expected_argument_count:
+        self.argument_error_message(optional_parameters, required_parameters, given_argument_count)
+
+    def argument_error_message(self, optional_parameters, required_parameters, given_argument_count):
+        should_error = False
+        if not optional_parameters and given_argument_count != required_parameters:
+            should_error = True
+            expected = f"Expected {required_parameters} argument"
+
+        total_parameters = required_parameters + optional_parameters
+        if optional_parameters and not (required_parameters <= given_argument_count <= total_parameters):
+            should_error = True
+            expected = f"Expected {required_parameters} to {total_parameters} argument"
+
+        if should_error:
             code_error((
-                f"Expected {expected_argument_count} argument"
-                f"{"" if expected_argument_count == 1 else "s"}, "
+                expected +
+                f"{"" if total_parameters == 1 else "s"}, "
                 f"got {given_argument_count}"
             ))
+
+    def get_builtin(self, obj, resolution_function, type_name):
+        resolution_attempt = resolution_function(obj)
+        if not resolution_attempt:
+            if "lexpos" in obj: set_lexpos(obj)
+            code_error(f"{type_name.title()} not found")
+
+        callable_object, sprite_specific = resolution_attempt
+        if sprite_specific and not self.is_sprite:
+            code_error(f"This {type_name} can only be used in a sprite")
+
+        return callable_object
 
     # Inner statements: what are under a hat block/function prototype
     def build_inner_statements(self, statements, modify_scope=True):
@@ -356,7 +391,12 @@ class ScriptBuilder:
 
                 if to_assign["type"] == "get attribute":
                     # For things like `this.x += 10`
-                    setter_function = translations.resolve_setter(to_assign)
+                    setter_function = self.get_builtin(
+                        to_assign,
+                        translations.resolve_setter,
+                        "attribute"
+                    )
+
                     new_value = operation(translations.resolve_reporter(to_assign)(), operand)
                     current_script.append(setter_function(new_value))
 
@@ -364,20 +404,27 @@ class ScriptBuilder:
                 function = statement["function"]
                 arguments = list(map(self.translate_expression, statement["arguments"]))
 
-                # For things like `scratch.key_pressed(...)`
+                # For things like `my_list.length`
                 if function["type"] == "get attribute":
                     variable_attribute = self.translate_variable_attribute(function, arguments, "function")
                     if variable_attribute:
                         current_script.append(variable_attribute)
                         continue
 
-                callable_object = translations.resolve_function(function)
-                if not callable_object:
-                    dict_entry = self.functions.get(function["variable"])
-                    if not dict_entry:
-                        code_error("Function not found")
-
+                # Check custom functions
+                dict_entry = self.functions.get(function.get("variable", None))
+                if dict_entry:
+                    self.argument_error_message(0, dict_entry["parameters"], len(arguments))
                     callable_object = dict_entry["callable"]
+
+                else:
+                    # Check builtin functions
+                    callable_object = self.get_builtin(
+                        function,
+                        translations.resolve_function,
+                        "function"
+                    )
+                    self.check_argument_count(callable_object, arguments)
 
                 class_name = callable_object.__name__
 
@@ -395,7 +442,6 @@ class ScriptBuilder:
                     broadcast_function = BroadcastAndWait if "Wait" in class_name else Broadcast
                     current_script.append(broadcast_function(broadcast_object))
                 else:
-                    self.check_argument_count(callable_object, arguments)
                     current_script.append(callable_object(*arguments))
 
             if statement["type"] == "if":
@@ -509,8 +555,11 @@ class ScriptBuilder:
             ))
             self.current_function_building = ""
 
-            callable = function_prototype.setScript(*this_script)
-            self.functions[function_name]["callable"] = callable
+            callable_object = function_prototype.setScript(*this_script)
+            self.functions[function_name].update({
+                "callable":   callable_object,
+                "parameters": len(function_parameters)
+            })
 
             self.exit_scope()
 

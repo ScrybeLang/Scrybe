@@ -87,45 +87,45 @@ operations = {
 reporters = {
     "scratch": {
         "backdrop": {
-            "name":             lambda: Backdrop(NAME),
-            "number":           lambda: Backdrop(NUMBER)
+            "name":             (lambda: Backdrop(NAME),   False),
+            "number":           (lambda: Backdrop(NUMBER), False),
         },
-        "answer":               Answer,
-        "mouse_down":           MouseDown,
-        "mouse_x":              MouseX,
-        "mouse_y":              MouseY,
-        "loudness":             Loudness,
-        "username":             Username
+        "answer":               (Answer,                   False),
+        "mouse_down":           (MouseDown,                False),
+        "mouse_x":              (MouseX,                   False),
+        "mouse_y":              (MouseY,                   False),
+        "loudness":             (Loudness,                 False),
+        "username":             (Username,                 False)
     },
 
     "C": {},
 
     "time": {
-        "year":                 lambda: Current(YEAR),
-        "month":                lambda: Current(MONTH),
-        "date":                 lambda: Current(DATE),
-        "day_of_week":          lambda: Current(DAY_OF_WEEK),
-        "hour":                 lambda: Current(HOUR),
-        "minute":               lambda: Current(MINUTE),
-        "second":               lambda: Current(SECOND),
-        "timer":                Timer,
-        "days_since_2000":      DaysSince2000
+        "year":                 (lambda: Current(YEAR),        False),
+        "month":                (lambda: Current(MONTH),       False),
+        "date":                 (lambda: Current(DATE),        False),
+        "day_of_week":          (lambda: Current(DAY_OF_WEEK), False),
+        "hour":                 (lambda: Current(HOUR),        False),
+        "minute":               (lambda: Current(MINUTE),      False),
+        "second":               (lambda: Current(SECOND),      False),
+        "timer":                (Timer,                        False),
+        "days_since_2000":      (DaysSince2000,                False)
     },
 
     "math": {
-        "pi":                   lambda: 3.141592653589793
+        "pi":                   (lambda: 3.141592653589793, False)
     },
 
     "this": {
-        "x":                    XPosition,
-        "y":                    YPosition,
-        "direction":            Direction,
-        "size":                 Size,
+        "x":                    (XPosition,               True),
+        "y":                    (YPosition,               True),
+        "direction":            (Direction,               True),
+        "size":                 (Size,                    True),
         "costume": {
-            "name":             lambda: Costume(NAME),
-            "number":           lambda: Costume(NUMBER)
+            "name":             (lambda: Costume(NAME),   True),
+            "number":           (lambda: Costume(NUMBER), True),
         },
-        "volume":               Volume
+        "volume":               (Volume,                  False)
     }
 }
 
@@ -153,38 +153,38 @@ def _random_choice(item):
 
 function_reporters = {
     "scratch": {
-        "key_pressed":          KeyPressed,
-        "get_attribute":        GetAttribute
+        "key_pressed":          (KeyPressed,   False),
+        "get_attribute":        (GetAttribute, False)
     },
 
     "math": {
-        "round":                Round,
-        "abs":                  lambda x: Operation(ABSOLUTE, x),
-        "floor":                lambda x: Operation(FLOOR, x),
-        "ceil":                 lambda x: Operation(CEILING, x),
-        "sqrt":                 lambda x: Operation(SQUARE_ROOT, x),
-        "sin":                  lambda x: Operation(SINE, x),
-        "cos":                  lambda x: Operation(COSINE, x),
-        "tan":                  lambda x: Operation(TANGENT, x),
-        "asin":                 lambda x: Operation(ARCSINE, x),
-        "acos":                 lambda x: Operation(ARCCOSINE, x),
-        "atan":                 lambda x: Operation(ARCTANGENT, x),
-        "log":                  lambda x: Operation(NATURAL_LOGARITHM, x),
-        "log10":                lambda x: Operation(LOGARITHM, x),
-        "exp":                  lambda x: Operation(E_TO_THE, x),
-        "exp10":                lambda x: Operation(TEN_TO_THE, x)
+        "round":                (Round,                                     False),
+        "abs":                  (lambda x: Operation(ABSOLUTE, x),          False),
+        "floor":                (lambda x: Operation(FLOOR, x),             False),
+        "ceil":                 (lambda x: Operation(CEILING, x),           False),
+        "sqrt":                 (lambda x: Operation(SQUARE_ROOT, x),       False),
+        "sin":                  (lambda x: Operation(SINE, x),              False),
+        "cos":                  (lambda x: Operation(COSINE, x),            False),
+        "tan":                  (lambda x: Operation(TANGENT, x),           False),
+        "asin":                 (lambda x: Operation(ARCSINE, x),           False),
+        "acos":                 (lambda x: Operation(ARCCOSINE, x),         False),
+        "atan":                 (lambda x: Operation(ARCTANGENT, x),        False),
+        "log":                  (lambda x: Operation(NATURAL_LOGARITHM, x), False),
+        "log10":                (lambda x: Operation(LOGARITHM, x),         False),
+        "exp":                  (lambda x: Operation(E_TO_THE, x),          False),
+        "exp10":                (lambda x: Operation(TEN_TO_THE, x),        False)
     },
 
     "random": {
-        "range":                PickRandom,
-        "choice":               _random_choice
+        "range":                (PickRandom,     False),
+        "choice":               (_random_choice, False)
     },
 
     "this": {
-        "touching":             TouchingObject,
-        "touching_color":       TouchingColor,
-        "color_touching_color": ColorTouchingColor,
-        "distance_to":          DistanceTo
+        "touching":             (TouchingObject,     True),
+        "touching_color":       (TouchingColor,      True),
+        "color_touching_color": (ColorTouchingColor, True),
+        "distance_to":          (DistanceTo,         True)
     }
 }
 
@@ -207,58 +207,58 @@ def _change_layer(change):
 
 functions = {
     "scratch": {
-        "stop":                 Stop,
-        "ask":                  AskAndWait,
-        "broadcast":            Broadcast,
-        "broadcast_and_wait":   BroadcastAndWait,
-        "clone":                lambda x = MYSELF: CreateCloneOf(x),
-        "delete_clone":         DeleteThisClone
+        "stop":                 (Stop,                                False),
+        "ask":                  (AskAndWait,                          False),
+        "broadcast":            (Broadcast,                           False),
+        "broadcast_and_wait":   (BroadcastAndWait,                    False),
+        "clone":                (lambda x = MYSELF: CreateCloneOf(x), False),
+        "delete_clone":         (DeleteThisClone,                     False)
     },
 
     "time": {
-        "sleep":                Wait,
-        "reset_timer":          ResetTimer,
-        "wait_until":           WaitUntil
+        "sleep":                (Wait,       False),
+        "reset_timer":          (ResetTimer, False),
+        "wait_until":           (WaitUntil,  False)
     },
 
-    "move_steps":               MoveSteps,
-    "go_to":                    GoTo,
-    "set_pos":                  GoToPosition,
-    "glide_to":                 lambda x, y: GlideTo(y, x),
-    "glide_to_pos":             lambda x, y, z: GlideToPosition(z, x, y),
-    "point_towards":            PointTowards,
-    "bounce_off_edge":          BounceOffEdge,
-    "set_rotation_style":       SetRotationStyle,
-    "say_for_seconds":          SayForSeconds,
-    "say":                      Say,
-    "think_for_seconds":        ThinkForSeconds,
-    "think":                    Think,
-    "set_costume":              SwitchCostume,
-    "next_costume":             NextCostume,
-    "switch_backdrop":          SwitchBackdrop,
-    "next_backdrop":            NextBackdrop,
-    "change_effect":            _change_effect,
-    "set_effect":               _set_effect,
-    "clear_graphic_effects":    ClearGraphicEffects,
-    "show":                     Show,
-    "hide":                     Hide,
-    "set_layer":                SetLayer,
-    "change_layer":             _change_layer,
-    "play_until_done":          PlayUntilDone,
-    "play_sound":               Play,
-    "stop_all_sounds":          StopSounds,
-    "clear_sound_effects":      ClearSoundEffects,
-    "set_drag_mode":            SetDragMode
+    "move_steps":               (MoveSteps,                                True),
+    "go_to":                    (GoTo,                                     True),
+    "set_pos":                  (GoToPosition,                             True),
+    "glide_to":                 (lambda x, y: GlideTo(y, x),               True),
+    "glide_to_pos":             (lambda x, y, z: GlideToPosition(z, x, y), True),
+    "point_towards":            (PointTowards,                             True),
+    "bounce_off_edge":          (BounceOffEdge,                            True),
+    "set_rotation_style":       (SetRotationStyle,                         True),
+    "say_for_seconds":          (SayForSeconds,                            True),
+    "say":                      (Say,                                      True),
+    "think_for_seconds":        (ThinkForSeconds,                          True),
+    "think":                    (Think,                                    True),
+    "set_costume":              (SwitchCostume,                            True),
+    "next_costume":             (NextCostume,                              True),
+    "switch_backdrop":          (SwitchBackdrop,                           False),
+    "next_backdrop":            (NextBackdrop,                             False),
+    "change_effect":            (_change_effect,                           False),
+    "set_effect":               (_set_effect,                              False),
+    "clear_graphic_effects":    (ClearGraphicEffects,                      False),
+    "show":                     (Show,                                     True),
+    "hide":                     (Hide,                                     True),
+    "set_layer":                (SetLayer,                                 True),
+    "change_layer":             (_change_layer,                            True),
+    "play_until_done":          (PlayUntilDone,                            False),
+    "play_sound":               (Play,                                     False),
+    "stop_all_sounds":          (StopSounds,                               False),
+    "clear_sound_effects":      (ClearSoundEffects,                        False),
+    "set_drag_mode":            (SetDragMode,                              True)
 }
 
 # Attributes that can be set, like `this.x += 10` or `this.size = 50`
 setters = {
     "this": {
-        "x":         SetX,
-        "y":         SetY,
-        "direction": PointInDirection,
-        "size":      SetSize,
-        "volume":    SetVolume
+        "x":         (SetX,             True),
+        "y":         (SetY,             True),
+        "direction": (PointInDirection, True),
+        "size":      (SetSize,          True),
+        "volume":    (SetVolume,        False)
     }
 }
 
