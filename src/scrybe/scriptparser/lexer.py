@@ -1,8 +1,6 @@
 from ply import lex
 from ast import literal_eval
-from ..logger import logger
-
-error = logger.error
+from ..logger import code_error, set_lexpos
 
 tokens = [
     "SPRITENAMEDEC", "COSTUMEDEC", "SOUNDDEC", "XDEC", "YDEC", "VISIBILITYDEC", "SIZEDEC", "DIRECTIONDEC", "DRAGGABLEDEC", "ROTATIONSTYLEDEC", "LAYERDEC",
@@ -108,10 +106,11 @@ def t_COMMENT(_):
     r"\/\/.*"
 
 def t_error(token):
-    if token.value[0] in ("'", '"'):
-        error(token.lexpos, "String not closed")
+    set_lexpos(token.lexpos)
 
-    error(token.lexpos, "Invalid character")
+    if token.value[0] in ("'", '"'):
+        code_error("String not closed")
+    code_error("Invalid character")
 
 t_ignore = " \t"
 

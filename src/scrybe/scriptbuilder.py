@@ -3,7 +3,7 @@ from ScratchGen.blocks import *
 from ScratchGen.datacontainer import List
 from . import translations
 from . import utils
-from .logger import debug, info, warn, error
+from .logger import debug, code_error, set_lexpos
 from inspect import signature
 
 class ScriptBuilder:
@@ -49,7 +49,7 @@ class ScriptBuilder:
         if not isinstance(expression, dict):
             return expression
 
-        lexpos = expression["lexpos"]
+        set_lexpos(expression["lexpos"])
 
         if expression["type"] == "binary operation":
             operation = translations.operations[expression["operation"]]
@@ -67,7 +67,7 @@ class ScriptBuilder:
         if expression["type"] == "variable":
             dict_entry = self.resolve_data_name(expression["variable"])
             if not dict_entry:
-                error(lexpos, "Variable not found")
+                code_error("Variable not found")
 
             return dict_entry["object"]
 
@@ -79,8 +79,9 @@ class ScriptBuilder:
                 # Add one to the index because Scratch has one-based indexing
                 index = self.translate_expression(expression["index"]) + 1
             except:
-                lexpos = expression_index["lexpos"] if isinstance(expression_index, dict) else lexpos
-                error(lexpos, "Index must be numerical")
+                if isinstance(expression_index, dict):
+                    set_lexpos(expression_index["lexpos"])
+                code_error("Index must be numerical")
 
             # For literals
             if not isinstance(expression_target, dict):
@@ -109,7 +110,8 @@ class ScriptBuilder:
 
             resolution_attempt = translations.resolve_reporter(expression)
             if not resolution_attempt:
-                error(expression["lexpos"], "Attribute not found")
+                set_lexpos(expression["lexpos"])
+                code_error("Attribute not found")
 
             return resolution_attempt()
 
@@ -134,9 +136,10 @@ class ScriptBuilder:
 
             resolution_attempt = translations.resolve_function_reporter(function)
             if not resolution_attempt:
-                error(function["lexpos"], "Reporting function not found")
+                set_lexpos(function["lexpos"])
+                code_error("Reporting function not found")
 
-            self.check_argument_count(lexpos, resolution_attempt, arguments)
+            self.check_argument_count(resolution_attempt, arguments)
 
             if resolution_attempt.__name__ == "TouchingObject":
                 target = arguments[0]
@@ -242,6 +245,8 @@ class ScriptBuilder:
         to_assign = statement["variable"]
         variable_value = self.translate_expression(statement["value"])
 
+        set_lexpos(to_assign["lexpos"])
+
         if to_assign["type"] == "variable":
             variable_name = to_assign["variable"]
             is_literal_list = isinstance(variable_value, list)
@@ -254,10 +259,10 @@ class ScriptBuilder:
                 variable_object = dict_entry["object"]
 
                 if variable_type != "list" and (is_literal_list or is_variable_list):
-                    error(to_assign["lexpos"], "Cannot assign a list value to a non-list")
+                    code_error("Cannot assign a list value to a non-list")
 
                 if variable_type == "list" and not (is_literal_list or is_variable_list):
-                    error(to_assign["lexpos"], "Cannot assign variable value to a list")
+                    code_error("Cannot assign variable value to a list")
 
             else:
                 # Variable does not yet exist, create and set it
@@ -283,7 +288,7 @@ class ScriptBuilder:
         if to_assign["type"] == "get attribute":
             resolution_attempt = translations.resolve_setter(to_assign)
             if not resolution_attempt:
-                error(to_assign["lexpos"], "Setter not found")
+                code_error("Setter not found")
 
             return [resolution_attempt(variable_value)]
 
@@ -296,29 +301,29 @@ class ScriptBuilder:
 
         dict_entry = self.resolve_data_name(expression["object"])
         if dict_entry:
-            # Get lex position of attribute (+ 1 for the period)
-            lexpos = expression["lexpos"] + len(expression["object"]) + 1
+            # Set lex position of attribute (+ 1 for the period)
+            set_lexpos(expression["lexpos"] + len(expression["object"]) + 1)
 
             if dict_entry["type"] == "list":
                 if attribute not in list_dictionary:
-                    error(lexpos, "List function not found")
+                    code_error("List function not found")
 
                 function = list_dictionary[expression["attribute"]]
             else:
                 if attribute not in variable_dictionary:
-                    error(lexpos, "Variable function not found")
+                    code_error("Variable function not found")
 
                 function = variable_dictionary[expression["attribute"]]
 
             variable_object = dict_entry["object"]
             return function(*arguments, variable_object)
 
-    def check_argument_count(self, lexpos, function_object, given_arguments):
+    def check_argument_count(self, function_object, given_arguments):
         expected_argument_count = len(signature(function_object).parameters)
         given_argument_count = len(given_arguments)
 
         if given_argument_count != expected_argument_count:
-            error(lexpos, (
+            code_error((
                 f"Expected {expected_argument_count} argument"
                 f"{"" if expected_argument_count == 1 else "s"}, "
                 f"got {given_argument_count}"
@@ -333,7 +338,7 @@ class ScriptBuilder:
         self.current_script_reference = current_script
 
         for statement in statements:
-            lexpos = statement["lexpos"]
+            set_lexpos(statement["lexpos"])
 
             if statement["type"] == "assignment":
                 current_script.extend(self.get_variable_setter(statement))
@@ -370,7 +375,7 @@ class ScriptBuilder:
                 if not callable_object:
                     dict_entry = self.functions.get(function["variable"])
                     if not dict_entry:
-                        error(statement["lexpos"], "Function not found")
+                        code_error("Function not found")
 
                     callable_object = dict_entry["callable"]
 
@@ -390,7 +395,7 @@ class ScriptBuilder:
                     broadcast_function = BroadcastAndWait if "Wait" in class_name else Broadcast
                     current_script.append(broadcast_function(broadcast_object))
                 else:
-                    self.check_argument_count(lexpos, callable_object, arguments)
+                    self.check_argument_count(callable_object, arguments)
                     current_script.append(callable_object(*arguments))
 
             if statement["type"] == "if":
@@ -462,7 +467,8 @@ class ScriptBuilder:
             translated_value = self.translate_expression(statement["value"])
 
             if isinstance(translated_value, Block):
-                error(statement["value"]["lexpos"], "Top-level assignment values must be literals")
+                set_lexpos(statement["value"]["lexpos"])
+                code_error("Top-level assignment values must be literals")
             else:
                 self.add_variable(
                     statement["variable"]["variable"],
@@ -510,6 +516,8 @@ class ScriptBuilder:
 
     def build_hats(self, hats):
         for hat in hats:
+            set_lexpos(hat["lexpos"])
+
             hat_event = hat["event"]
             hat_arguments = hat["arguments"]
             hat_body = hat["body"]
@@ -528,6 +536,9 @@ class ScriptBuilder:
                 continue
 
             hat_class = translations.resolve_hat(hat_event)
+
+            if not hat_class:
+                code_error("Hat not found")
 
             if hat_class.__name__ == "WhenBroadcastReceived": # Is this Pythonic?
                 broadcast_name = hat_arguments[0]

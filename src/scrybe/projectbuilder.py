@@ -1,7 +1,8 @@
 from ScratchGen import Project
 from ScratchGen.constants import *
 from .scriptbuilder import ScriptBuilder
-from .logger import debug, info, warn, error
+from .logger import debug, warn, code_error, set_lexpos
+from . import filestate
 import glob
 import os
 
@@ -14,7 +15,8 @@ class ProjectBuilder:
         #     <broadcast name>: {
         #         "broadcast": <broadcast object>,
         #         "variable":  <broadcast message object>
-        #     }
+        #     },
+        #    ...
         # }
         self.broadcasts = {}
         # Variables: {
@@ -22,7 +24,8 @@ class ProjectBuilder:
         #         <variable name>: {                    \
         #             "type":   <"variable" or "list">, | Single variable schema
         #             "object": <variable object>       |
-        #         }                                     /
+        #         },                                    /
+        #         ...
         #     },
         #     "local": {
         #         "stage":   {<variable schemas>},
@@ -39,7 +42,8 @@ class ProjectBuilder:
         # Scripts: {
         #     "stage": <list of AST statements>,
         #     "sprites": {
-        #         <sprite name>: <list of AST statements>
+        #         <sprite name>: <list of AST statements>,
+        #         ...
         #     }
         # }
         self.scripts = {
@@ -47,7 +51,11 @@ class ProjectBuilder:
             "sprites": {}
         }
         # Sprites: {
-        #     <sprite name>: <sprite object>
+        #     <sprite name>: {
+        #         "object":   <sprite object>,
+        #         "filename": <sprite filename>
+        #     },
+        #     ...
         # }
         self.sprites = {}
 
@@ -122,7 +130,10 @@ class ProjectBuilder:
 
         self.variables["local"]["sprites"][sprite.name] = {}
         self.scripts["sprites"][sprite.name] = sprite_ast["statements"]
-        self.sprites[sprite.name] = sprite
+        self.sprites[sprite.name] = {
+            "object":   sprite,
+            "filename": filename
+        }
 
         return sprite.name
 
@@ -171,14 +182,14 @@ class ProjectBuilder:
 
         for declaration_name, _, sprite_specific in declaration_info:
             for declaration in declaration_statements:
-                lexpos = declaration["lexpos"]
+                set_lexpos(declaration["lexpos"])
 
                 if declaration["property"] == f"#{declaration_name}":
                     if sprite_specific and is_stage:
-                        error(lexpos, "This declaration can only be used in a sprite")
+                        code_error("This declaration can only be used in a sprite")
 
                     if declaration_name in defined_declarations:
-                        error(lexpos, "Redefined declaration")
+                        code_error("Redefined declaration")
 
                     declarations[declaration_name] = declaration["value"]
                     defined_declarations.append(declaration_name)
@@ -206,16 +217,21 @@ class ProjectBuilder:
             statements = self.scripts["stage"]
             target = self.project.stage
 
+            filestate.current_entry = "stage.sbs"
             ScriptBuilder(self, statements, target).build()
             debug("  Built scripts in stage")
 
         else:
             warn("  No scripts were found in the stage")
 
-        for sprite_name, sprite_object in self.sprites.items():
+        for sprite_name, dict_entry in self.sprites.items():
+            sprite_object = dict_entry["object"]
+            sprite_filename = dict_entry["filename"]
+
             statements = self.scripts["sprites"][sprite_name]
             target = sprite_object
 
+            filestate.current_entry = f"sprites/{sprite_filename}"
             ScriptBuilder(self, statements, target).build()
             debug(f'  Built scripts in sprite "{sprite_name}"')
 

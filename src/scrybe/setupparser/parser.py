@@ -2,7 +2,7 @@ from ply import yacc
 from .lexer import lexer, tokens
 from .. import filestate
 from .. import utils
-from ..logger import debug, info, warn, error
+from ..logger import code_error, set_lexpos
 
 precedence = (
     ("left", "OR"),
@@ -143,22 +143,22 @@ def p_error(token):
     state = parser.state
     expected = parser.action[state].keys()
     current_token = token.type if token else "EOF"
-    lexpos = token.lexpos if token else None
+    set_lexpos(token.lexpos if token else None)
 
     if stack[-1].endswith("DEC"):
-        error(lexpos, "Invalid declaration type")
+        code_error("Invalid declaration type")
 
     if current_token.endswith("DEC"):
-        error(lexpos, "Unexpected declaration")
+        code_error("Unexpected declaration")
 
     if "SEMICOLON" in expected:
-        error(lexpos, "Expected semicolon")
+        code_error("Expected semicolon")
 
     if "NUMBER" in expected:
-        error(lexpos, "Expected expression")
+        code_error("Expected expression")
 
     if "VARIABLE" in stack:
-        error(lexpos, "Unexpected variable")
+        code_error("Unexpected variable")
 
     print("Uncaught setup parsing error, please report in the repository")
     print("-" * 50)
@@ -174,7 +174,7 @@ parser = yacc.yacc()
 
 def parse_file(file_path):
     filestate.open_file(file_path)
-    ast = parser.parse(filestate.file_handle.read(), lexer=lexer)
+    ast = parser.parse(filestate.read_file(), lexer=lexer)
     filestate.close_file()
 
     return ast

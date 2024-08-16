@@ -2,9 +2,7 @@ from ply import yacc
 from .lexer import lexer, tokens, reserved
 from .. import filestate
 from .. import utils
-from ..logger import logger
-
-error = logger.error
+from ..logger import code_error, set_lexpos
 
 precedence = (
     ("left", "OR"),
@@ -411,53 +409,54 @@ def p_error(token):
     state = parser.state
     expected = parser.action[state].keys()
     current_token = token.type if token else "EOF"
-    lexpos = token.lexpos if token else None
+    set_lexpos(token.lexpos if token else None)
 
     if not stack:
-        error(0, "Expected declaration")
+        set_lexpos(0)
+        code_error("Expected declaration")
 
     if current_token.endswith("DEC"):
-        error(lexpos, "Expected declaration value")
+        code_error("Expected declaration value")
 
     if stack[-1].endswith("DEC"):
-        error(lexpos, "Invalid declaration value")
+        code_error("Invalid declaration value")
 
     if current_token in reserved.values():
-        error(lexpos, "Can't use that keyword here")
+        code_error("Can't use that keyword here")
 
     if stack[-1] == "expression":
-        error(lexpos, "Unexpected expression")
+        code_error("Unexpected expression")
 
     if stack[-1] == "DOT":
-        error(lexpos, "Invalid attribute name")
+        code_error("Invalid attribute name")
 
     if current_token == "RPAREN":
-        error(lexpos, "Unfinished argument")
+        code_error("Unfinished argument")
 
     if "SEMICOLON" in expected:
-        error(lexpos, "Expected semicolon")
+        code_error("Expected semicolon")
 
     if "BRACE" in current_token:
-        error(lexpos, "Unexpected brace")
+        code_error("Unexpected brace")
 
     if current_token == "SEMICOLON" and ("EQUALS" in expected or "STRING" in expected):
-        error(lexpos, "Expected expression")
+        code_error("Expected expression")
 
     if "FUNCTION" in stack and "VARIABLE" in stack and "LPAREN" in expected:
-        error(lexpos, "Missing function parentheses")
+        code_error("Missing function parentheses")
 
     if "LPAREN" in expected:
-        error(lexpos, "Expected parenthesis")
+        code_error("Expected parenthesis")
 
     if "IF" in expected:
-        error(lexpos, "Expected statement")
+        code_error("Expected statement")
 
     if current_token == "SEMICOLON":
-        error(lexpos, "Unexpected semicolon")
+        code_error("Unexpected semicolon")
 
-    print("Uncaught script parsing error, please report in the repository")
+    print("Uncaught script parsing code_error, please report in the repository")
     print("-" * 50)
-    print(f"Syntax error at line {token.lineno if token else 'EOF'}")
+    print(f"Syntax code_error at line {token.lineno if token else 'EOF'}")
     print(f"Token: {current_token}")
     print(f"Expected: {', '.join(expected)}")
     print(f"Symbol stack (state {state}): {stack}")
@@ -468,7 +467,7 @@ parser = yacc.yacc(debug=False, optimize=True, errorlog=utils.NullBuffer)
 
 def parse_file(file_path):
     filestate.open_file(file_path)
-    ast = parser.parse(filestate.file_handle.read(), lexer=lexer)
+    ast = parser.parse(filestate.read_file(), lexer=lexer)
     filestate.close_file()
 
     return ast
