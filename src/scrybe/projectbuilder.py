@@ -2,7 +2,6 @@ from ScratchGen import Project
 from ScratchGen.constants import *
 from .scriptbuilder import ScriptBuilder
 from .logger import debug, info, warn, error
-
 import glob
 import os
 
@@ -101,44 +100,90 @@ class ProjectBuilder:
 
         return self.broadcasts[broadcast_name]
 
-    def add_stage(self, stage_ast):
-        declarations = stage_ast["declarations"]
-
-        backdrops = self.get_declaration(declarations, "#costume", [])
-        sounds    = self.get_declaration(declarations, "#sound", [])
-
-        self.add_assets(backdrops, "backdrop", self.project.stage)
-        self.add_assets(sounds, "sound", self.project.stage)
-
-        self.scripts["stage"] = stage_ast["statements"]
-
     def add_sprite(self, sprite_ast, filename):
-        declarations = sprite_ast["declarations"]
-
-        name           = self.get_declaration(declarations, "#name", filename[:-4])
-        costumes       = self.get_declaration(declarations, "#costume", [])
-        sounds         = self.get_declaration(declarations, "#sound", [])
-        visible        = self.get_declaration(declarations, "#visible", True)
-        x              = self.get_declaration(declarations, "#x", 0)
-        y              = self.get_declaration(declarations, "#y", 0)
-        size           = self.get_declaration(declarations, "#size", 100)
-        direction      = self.get_declaration(declarations, "#direction", 90)
-        draggable      = self.get_declaration(declarations, "#draggable", True)
-        rotation_style = self.get_declaration(declarations, "#rotationstyle", ALL_AROUND)
-        layer_order    = self.get_declaration(declarations, "#layer", 1)
-
-        sprite = self.project.createSprite(
-            name, visible, x, y, size, direction, draggable, rotation_style, layer_order
+        declarations = self.get_declarations(
+            sprite_ast["declarations"], filename, False
         )
 
-        self.add_assets(costumes, "costume", sprite)
-        self.add_assets(sounds, "sound", sprite)
+        sprite = self.project.createSprite(
+            declarations["name"],
+            declarations["visible"],
+            declarations["x"],
+            declarations["y"],
+            declarations["size"],
+            declarations["direction"],
+            declarations["draggable"],
+            declarations["rotationstyle"],
+            declarations["layer"]
+        )
+
+        self.add_assets(declarations["costume"], "costume", sprite)
+        self.add_assets(declarations["sound"], "sound", sprite)
 
         self.variables["local"]["sprites"][sprite.name] = {}
         self.scripts["sprites"][sprite.name] = sprite_ast["statements"]
         self.sprites[sprite.name] = sprite
 
         return sprite.name
+
+    def add_stage(self, stage_ast):
+        declarations = self.get_declarations(
+            stage_ast["declarations"], "stage.sbs", True
+        )
+
+        self.add_assets(declarations["costume"], "backdrop", self.project.stage)
+        self.add_assets(declarations["sound"], "sound", self.project.stage)
+
+        self.scripts["stage"] = stage_ast["statements"]
+
+    # This would be a constant top-level tuple but "filename" has to be set each time
+    def generate_declaration_info(self, filename):
+        # Info: (
+        #     (<declaration name>, <default value>, <sprite-specific>),
+        #     ...
+        # )
+        return (
+            ("name",          filename[:-4], True),
+            ("costume",       [],            False),
+            ("sound",         [],            False),
+            ("visible",       True,          True),
+            ("x",             0,             True),
+            ("y",             0,             True),
+            ("size",          100,           True),
+            ("direction",     90,            True),
+            ("draggable",     True,          True),
+            ("rotationstyle", ALL_AROUND,    True),
+            ("layer",         1,             True)
+        )
+
+    # Get declarations as a dictionary
+    # Declaration dictionary: {
+    #     <declaration name>: <declaration value>,
+    #     ...
+    # }
+    def get_declarations(self, declaration_statements, filename, is_stage):
+        declaration_info = self.generate_declaration_info(filename)
+
+        # Cut off the third element of each item (the sprite-specific tag)
+        # to get a dictionary with default values
+        declarations = dict([item[:-1] for item in declaration_info])
+        defined_declarations = []
+
+        for declaration_name, _, sprite_specific in declaration_info:
+            for declaration in declaration_statements:
+                lexpos = declaration["lexpos"]
+
+                if declaration["property"] == f"#{declaration_name}":
+                    if sprite_specific and is_stage:
+                        error(lexpos, "This declaration can only be used in a sprite")
+
+                    if declaration_name in defined_declarations:
+                        error(lexpos, "Redefined declaration")
+
+                    declarations[declaration_name] = declaration["value"]
+                    defined_declarations.append(declaration_name)
+
+        return declarations
 
     def add_assets(self, path_list, type, target):
         function = target.addSound if type == "sound" else target._addCostume

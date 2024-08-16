@@ -72,6 +72,7 @@ def p_meta_declaration(prod):
         value = prod[2]
 
     prod[0] = {
+        "lexpos":   prod.lexpos(1),
         "type":     "meta declaration",
         "property": prod[1],
         "value":    value
