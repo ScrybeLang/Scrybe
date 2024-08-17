@@ -97,8 +97,8 @@ class ProjectBuilder:
 
     def get_broadcast(self, broadcast_name):
         if broadcast_name not in self.broadcasts:
-            variable_object = self.add_variable(f"br_{broadcast_name}", "")["object"]
             broadcast_object = self.project.createBroadcast(broadcast_name)
+            variable_object = self.add_variable(f"br_{broadcast_name}", "")["object"]
 
             self.broadcasts[broadcast_name] = {
                 "broadcast": broadcast_object,

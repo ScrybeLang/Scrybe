@@ -99,10 +99,9 @@ class ScriptBuilder:
             return LetterOf(index, target_object)
 
         if expression["type"] == "get attribute":
-            # Check if attribute is of a list/variable first
-            variable_attribute = self.translate_variable_attribute(expression, [], "reporter")
-            if variable_attribute:
-                return variable_attribute
+            # Check if attribute is of a list/variable
+            if self.resolve_data_name(expression["object"], allow_nonexistent=True):
+                return self.translate_variable_attribute(expression, [], "reporter")
 
             if expression["object"] == "this" and expression["attribute"] == "is_clone":
                 if not self.is_sprite:
@@ -119,7 +118,7 @@ class ScriptBuilder:
             function = expression["function"]
             arguments = list(map(self.translate_expression, expression["arguments"]))
 
-            # Check if is a custom function first
+            # Check if is a custom function
             if function["type"] == "variable" and function["variable"] in self.functions:
                 function_name = function["variable"]
                 dict_entry = self.functions[function_name]
@@ -131,17 +130,16 @@ class ScriptBuilder:
                 self.current_script_reference.append(callable_object(*arguments))
                 return output_object
 
-            # Check if function is of a list/variable
-            variable_attribute = self.translate_variable_attribute(function, arguments, "reporter")
-            if variable_attribute:
-                return variable_attribute
+            # Check if method is of a list/variable
+            if self.resolve_data_name(function["object"], allow_nonexistent=True):
+                return self.translate_variable_attribute(expression, [], "function")
 
             callable_object = self.get_builtin(
                 function,
                 translations.resolve_function_reporter,
                 "function"
             )
-            self.check_argument_count(callable_object, arguments)
+            self.check_argument_count(callable_object, len(arguments))
 
             if callable_object.__name__ == "TouchingObject":
                 target = arguments[0]
@@ -326,11 +324,10 @@ class ScriptBuilder:
         variable_object = dict_entry["object"]
         return function(*arguments, variable_object)
 
-    def check_argument_count(self, function_object, given_arguments):
+    def check_argument_count(self, function_object, given_argument_count):
         parameters = [i for i in signature(function_object).parameters.values()]
         required_parameters = len([i for i in parameters if i.default == i.empty])
         optional_parameters = len(parameters) - required_parameters
-        given_argument_count = len(given_arguments)
 
         self.argument_error_message(optional_parameters, required_parameters, given_argument_count)
 
@@ -352,9 +349,10 @@ class ScriptBuilder:
                 f"got {given_argument_count}"
             ))
 
-    def get_builtin(self, obj, resolution_function, type_name):
+    def get_builtin(self, obj, resolution_function, type_name, allow_nonexistent=False):
         resolution_attempt = resolution_function(obj)
         if not resolution_attempt:
+            if allow_nonexistent: return None
             if "lexpos" in obj: set_lexpos(obj["lexpos"])
             code_error(f"{type_name.title()} not found")
 
@@ -414,31 +412,34 @@ class ScriptBuilder:
                 function = statement["function"]
                 arguments = list(map(self.translate_expression, statement["arguments"]))
 
-                # For things like `my_list.length`
-                if function["type"] == "get attribute":
-                    variable_attribute = self.translate_variable_attribute(function, arguments, "function")
-                    if variable_attribute:
-                        current_script.append(variable_attribute)
-                        continue
-
-                # Check custom functions
-                dict_entry = self.functions.get(function.get("variable", None))
-                if dict_entry:
-                    self.argument_error_message(0, dict_entry["parameters"], len(arguments))
-                    callable_object = dict_entry["callable"]
+                # Check builtin functions
+                callable_object = self.get_builtin(
+                    function,
+                    translations.resolve_function,
+                    "function",
+                    allow_nonexistent = True
+                )
+                if callable_object:
+                    self.check_argument_count(callable_object, len(arguments))
 
                 else:
-                    # Check builtin functions
-                    callable_object = self.get_builtin(
-                        function,
-                        translations.resolve_function,
-                        "function"
-                    )
-                    self.check_argument_count(callable_object, arguments)
+                    # Check custom functions
+                    if self.functions.get(function.get("variable")):
+                        dict_entry = self.functions[function["variable"]]
 
-                class_name = callable_object.__name__
+                        callable_object = dict_entry["callable"]
+                        parameter_count = dict_entry["parameters"]
 
-                if class_name.startswith("Broadcast"):
+                        self.argument_error_message(0, parameter_count, len(arguments))
+
+                    else:
+                        code_error("Function not found")
+
+                if (
+                    function["type"] == "get attribute" and
+                    function["object"] == "scratch" and
+                    function["attribute"].startswith("broadcast")
+                ):
                     # Set broadcast message variable to the second argument,
                     # or an empty string to reset it. Then add the rest
                     broadcast_name = arguments[0]
@@ -449,10 +450,9 @@ class ScriptBuilder:
                     variable_object = dict_entry["variable"]
 
                     current_script.append(SetVariable(variable_object, broadcast_message))
-                    broadcast_function = BroadcastAndWait if "Wait" in class_name else Broadcast
-                    current_script.append(broadcast_function(broadcast_object))
-                else:
-                    current_script.append(callable_object(*arguments))
+                    arguments = [broadcast_object]
+
+                current_script.append(callable_object(*arguments))
 
             if statement["type"] == "if":
                 condition = self.translate_boolean(statement["expression"])
