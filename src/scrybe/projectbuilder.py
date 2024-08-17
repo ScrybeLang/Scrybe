@@ -8,7 +8,7 @@ import os
 
 class ProjectBuilder:
     def __init__(self, directory_name):
-        self.project = Project()
+        self.project = Project(agent="Scrybe")
         self.filename = f"{directory_name}.sb3"
 
         # Broadcasts: {
