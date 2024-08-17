@@ -43,14 +43,8 @@ def get_arguments():
             i += 1
             log_level = provided_arguments[i]
 
-        elif string == "-color":
-            if i == len(provided_arguments) - 1:
-                error("Missing color option", exit=True)
-            if provided_arguments[i + 1].lower() not in ("on", "off"):
-                error("Invalid color option, must be one of on, off", exit=True)
-
-            i += 1
-            color = provided_arguments[i].lower() == "on"
+        elif string == "-nocolor":
+            color = False
 
         else:
             error(f'Unknown argument - "{string}"', exit=True)
