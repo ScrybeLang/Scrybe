@@ -68,11 +68,7 @@ class ScriptBuilder:
             return self.translate_expression(expression["expression"]) * -1
 
         if expression["type"] == "variable":
-            dict_entry = self.resolve_data_name(expression["variable"])
-            if not dict_entry:
-                code_error("Variable not found")
-
-            return dict_entry["object"]
+            return self.resolve_data_name(expression["variable"])["object"]
 
         if expression["type"] == "index":
             expression_target = expression["target"]
@@ -206,7 +202,7 @@ class ScriptBuilder:
                 function(expression["comparand 2"])
             )
 
-    def resolve_data_name(self, data_name):
+    def resolve_data_name(self, data_name, allow_nonexistent=False):
         variables = self.projectbuilder.variables
 
         # Check global variables first
@@ -235,6 +231,10 @@ class ScriptBuilder:
                 # `scope_ID` can either be the current scope ID or in the stack
                 return dict_entry
 
+        # Variable wasn't found, either error or implicitly return None
+        if not allow_nonexistent:
+            code_error("Variable not found")
+
     def add_variable(self, variable_name, variable_value):
         prefix = self.variable_prefix
         current_scope = self.current_scope_ID
@@ -258,7 +258,7 @@ class ScriptBuilder:
             is_literal_list = isinstance(variable_value, list)
             is_variable_list = isinstance(variable_value, List)
 
-            dict_entry = self.resolve_data_name(variable_name)
+            dict_entry = self.resolve_data_name(variable_name, allow_nonexistent=True)
             if dict_entry:
                 # Variable already exists
                 variable_type = dict_entry["type"]
@@ -308,23 +308,23 @@ class ScriptBuilder:
         attribute = expression["attribute"]
 
         dict_entry = self.resolve_data_name(expression["object"])
-        if dict_entry:
-            # Set lex position of attribute (+ 1 for the period)
-            set_lexpos(expression["lexpos"] + len(expression["object"]) + 1)
 
-            if dict_entry["type"] == "list":
-                if attribute not in list_dictionary:
-                    code_error("List function not found")
+        # Set lex position of attribute (+ 1 for the period)
+        set_lexpos(expression["lexpos"] + len(expression["object"]) + 1)
 
-                function = list_dictionary[expression["attribute"]]
-            else:
-                if attribute not in variable_dictionary:
-                    code_error("Variable function not found")
+        if dict_entry["type"] == "list":
+            if attribute not in list_dictionary:
+                code_error("List function not found")
 
-                function = variable_dictionary[expression["attribute"]]
+            function = list_dictionary[expression["attribute"]]
+        else:
+            if attribute not in variable_dictionary:
+                code_error("Variable function not found")
 
-            variable_object = dict_entry["object"]
-            return function(*arguments, variable_object)
+            function = variable_dictionary[expression["attribute"]]
+
+        variable_object = dict_entry["object"]
+        return function(*arguments, variable_object)
 
     def check_argument_count(self, function_object, given_arguments):
         parameters = [i for i in signature(function_object).parameters.values()]
@@ -403,7 +403,7 @@ class ScriptBuilder:
             if statement["type"] == "index assign":
                 dict_entry = self.resolve_data_name(statement["target"]["variable"])
 
-                if dict_entry and dict_entry["type"] == "list":
+                if dict_entry["type"] == "list":
                     list_object = dict_entry["object"]
                     index = self.translate_expression(statement["index"]) + 1
                     value = self.translate_expression(statement["value"])
