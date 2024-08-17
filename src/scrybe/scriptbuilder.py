@@ -355,7 +355,7 @@ class ScriptBuilder:
     def get_builtin(self, obj, resolution_function, type_name):
         resolution_attempt = resolution_function(obj)
         if not resolution_attempt:
-            if "lexpos" in obj: set_lexpos(obj)
+            if "lexpos" in obj: set_lexpos(obj["lexpos"])
             code_error(f"{type_name.title()} not found")
 
         callable_object, sprite_specific = resolution_attempt
