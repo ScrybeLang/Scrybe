@@ -2,7 +2,7 @@
 
 [project]
 name = "ScrybeLang"
-version = "1.0.1"
+version = "1.1.0"
 description = "A text-based programming language that compiles to Scratch"
 readme = "README.md"
 authors = [
