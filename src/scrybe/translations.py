@@ -144,7 +144,7 @@ for constant in (
     "BACKDROP_NUMBER", "BACKDROP_NAME", "X_POSITION", "Y_POSITION", "DIRECTION", "COSTUME_NUMBER", "COSTUME_NAME", "SIZE", "VOLUME",
     "LOUDNESS", "TIMER"
 ):
-    reporters["C"][constant] = _make_lambda(constant)
+    reporters["C"][constant] = (_make_lambda(constant), False)
 
 def _random_choice(item):
     if isinstance(item, List):
@@ -207,12 +207,12 @@ def _change_layer(change):
 
 functions = {
     "scratch": {
-        "stop":                 (Stop,                                False),
-        "ask":                  (AskAndWait,                          False),
-        "broadcast":            (Broadcast,                           False),
-        "broadcast_and_wait":   (BroadcastAndWait,                    False),
-        "clone":                (lambda x = MYSELF: CreateCloneOf(x), False),
-        "delete_clone":         (DeleteThisClone,                     False)
+        "stop":                 (Stop,                                    False),
+        "ask":                  (AskAndWait,                              False),
+        "broadcast":            (lambda x, y = None: Broadcast(x),        False),
+        "broadcast_and_wait":   (lambda x, y = None: BroadcastAndWait(x), False),
+        "clone":                (lambda x = MYSELF: CreateCloneOf(x),     False),
+        "delete_clone":         (DeleteThisClone,                         False)
     },
 
     "time": {
