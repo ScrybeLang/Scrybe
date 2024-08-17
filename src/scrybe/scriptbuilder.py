@@ -400,6 +400,16 @@ class ScriptBuilder:
                     new_value = operation(translations.resolve_reporter(to_assign)(), operand)
                     current_script.append(setter_function(new_value))
 
+            if statement["type"] == "index assign":
+                dict_entry = self.resolve_data_name(statement["target"]["variable"])
+
+                if dict_entry and dict_entry["type"] == "list":
+                    list_object = dict_entry["object"]
+                    index = self.translate_expression(statement["index"]) + 1
+                    value = self.translate_expression(statement["value"])
+
+                    current_script.append(ReplaceInList(index, list_object, value))
+
             if statement["type"] == "function call":
                 function = statement["function"]
                 arguments = list(map(self.translate_expression, statement["arguments"]))

@@ -93,6 +93,7 @@ def p_top_level_statement(prod):
 def p_single_statement(prod):
     """single_statement : set_variable
                         | in_place_assignment
+                        | index_assign
                         | function_call"""
     prod[0] = prod[1]
 
@@ -161,6 +162,16 @@ def p_index(prod):
         "type":   "index",
         "target": prod[1],
         "index":  prod[3]
+    }
+
+def p_index_assign(prod):
+    """index_assign : index EQUALS expression"""
+    prod[0] = {
+        "lexpos": prod[1]["lexpos"],
+        "type":   "index assign",
+        "target": prod[1]["target"],
+        "index":  prod[1]["index"],
+        "value":  prod[3]
     }
 
 def p_attribute_of(prod):
