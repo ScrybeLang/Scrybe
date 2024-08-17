@@ -22,6 +22,7 @@ def get_arguments():
     output_filename = None
     log_level       = "info"
     color           = True
+    open_after      = False
 
     # While-based loop so we can skip argument values
     i = 0
@@ -46,6 +47,9 @@ def get_arguments():
         elif string == "-nocolor":
             color = False
 
+        elif string == "-open":
+            open_after = True
+
         else:
             error(f'Unknown argument - "{string}"', exit=True)
 
@@ -55,7 +59,8 @@ def get_arguments():
         "project path":    provided_path,
         "output filename": output_filename,
         "log level":       log_level,
-        "color":           color
+        "color":           color,
+        "open after":      open_after
     }
 
 def main():
@@ -64,6 +69,7 @@ def main():
     output_filename = arguments["output filename"]
     log_level       = arguments["log level"]
     color           = arguments["color"]
+    open_after      = arguments["open after"]
 
     logger.log_level = log_level
     logger.color     = color
@@ -115,6 +121,9 @@ def main():
     os.chdir(running_directory)
     filename = projectbuilder.save(output_filename)
     info(f'Project saved as "{filename}"')
+
+    if open_after:
+        os.startfile(filename)
 
 if __name__ == "__main__":
     main()
