@@ -279,11 +279,11 @@ list_functions = {
     "remove": lambda index, _list: DeleteOfList(index + 1, _list),
     "clear":  ClearList,
     "insert": lambda index, item, _list: InsertIntoList(item, index + 1, _list),
+    "index":  lambda item, _list: ListIndexOf(item, _list) - 1
 }
 
 list_reporters = {
-    "length": ListLength,
-    "index":  lambda item, _list: ListIndexOf(item, _list) - 1
+    "length": ListLength
 }
 
 variable_functions = {}

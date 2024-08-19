@@ -76,7 +76,7 @@ class ScriptBuilder:
 
             try:
                 # Add one to the index because Scratch has one-based indexing
-                index = self.translate_expression(expression["index"]) + 1
+                index = self.translate_expression(expression_index) + 1
             except:
                 if isinstance(expression_index, dict):
                     set_lexpos(expression_index["lexpos"])
@@ -132,7 +132,7 @@ class ScriptBuilder:
 
             # Check if method is of a list/variable
             if self.resolve_data_name(function["object"], allow_nonexistent=True):
-                return self.translate_variable_attribute(expression, [], "function")
+                return self.translate_variable_attribute(function, arguments, "function")
 
             callable_object = self.get_builtin(
                 function,
@@ -411,6 +411,7 @@ class ScriptBuilder:
             if statement["type"] == "function call":
                 function = statement["function"]
                 arguments = list(map(self.translate_expression, statement["arguments"]))
+                callable_object = None
 
                 # Check builtin functions
                 callable_object = self.get_builtin(
@@ -432,8 +433,10 @@ class ScriptBuilder:
 
                         self.argument_error_message(0, parameter_count, len(arguments))
 
-                    else:
-                        code_error("Function not found")
+                # Check variable/list methods
+                if not callable_object and self.resolve_data_name(function["object"], allow_nonexistent=True):
+                    current_script.append(self.translate_variable_attribute(function, arguments, "function"))
+                    continue
 
                 if (
                     function["type"] == "get attribute" and
@@ -452,6 +455,8 @@ class ScriptBuilder:
                     current_script.append(SetVariable(variable_object, broadcast_message))
                     arguments = [broadcast_object]
 
+                if not callable_object:
+                    code_error("Function not found")
                 current_script.append(callable_object(*arguments))
 
             if statement["type"] == "if":
