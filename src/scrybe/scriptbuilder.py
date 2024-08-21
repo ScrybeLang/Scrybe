@@ -219,7 +219,7 @@ class ScriptBuilder:
 
         # Lastly, check scoped variables
         for encoded_name, dict_entry in local_variables.items():
-            if encoded_name[:2] in ("g_", "s_", "b_", "fo"):
+            if any(encoded_name.startswith(i) for i in ("g_", "s_", "b_", "fo_", "bfo_")):
                 continue
 
             encoded_scope, name = encoded_name.split("_", maxsplit=1)
@@ -560,7 +560,8 @@ class ScriptBuilder:
                 variable_object = self.add_variable(parameter_name, "")
                 this_script.append(SetVariable(variable_object, parameter_object))
 
-            output_variable = self.projectbuilder.add_variable(f"fo_{function_name}", "", self.target)["object"]
+            output_variable_name = f"fo_{function_name}" if self.is_sprite else f"bfo_{function_name}"
+            output_variable = self.projectbuilder.add_variable(output_variable_name, "", self.target)["object"]
             self.functions[function_name] = {"output": output_variable} # Add to functions dictionary first
                                                                         # so it can be used when returning
             self.current_function_building = function_name
