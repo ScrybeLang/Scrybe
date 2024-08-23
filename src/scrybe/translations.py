@@ -67,8 +67,9 @@ number_conditions = {
 # This is needed because only reporters have overridden math dunder methods
 def _make_lambda(original_function, scratchgen_function):
     return lambda x, y: (
-        scratchgen_function(x, y) if isinstance(x, (int, float))
-            else original_function(x, y)
+        scratchgen_function(x, y) if (isinstance(x, (int, float)) and not
+                                      isinstance(y, (int, float)))
+        else original_function(x, y)
     )
 
 operations = {
