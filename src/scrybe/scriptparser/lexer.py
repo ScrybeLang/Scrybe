@@ -5,7 +5,7 @@ from ..logger import code_error, set_lexpos
 tokens = [
     "SPRITENAMEDEC", "COSTUMEDEC", "SOUNDDEC", "XDEC", "YDEC", "VISIBILITYDEC", "SIZEDEC", "DIRECTIONDEC", "DRAGGABLEDEC", "ROTATIONSTYLEDEC", "LAYERDEC",
     "SEMICOLON", "VARIABLE", "SYMBOL", "EQUALS",
-    "STRING", "NUMBER",
+    "STRING", "DECIMAL", "INTEGER",
     "LPAREN", "RPAREN", "LBRACKET", "RBRACKET", "LBRACE", "RBRACE", "DOT", "COMMA", "CONCAT",
     "PLUS", "MINUS", "TIMES", "DIVIDEDBY", "MODULO", "EXPONENT", "UMINUS",
     "PLUSASSIGN", "MINUSASSIGN", "TIMESASSIGN", "DIVIDEDBYASSIGN", "MODULOASSIGN", "EXPONENTASSIGN", "CONCATASSIGN",
@@ -90,12 +90,14 @@ def t_STRING(token):
     token.value = literal_eval(token.value)
     return token
 
-def t_NUMBER(token):
-    r"[-\+]?\d+(\.\d+)?"
-    if float(token.value) % 1 == 0:
-        token.value = int(token.value)
-    else:
-        token.value = float(token.value)
+def t_DECIMAL(token):
+    r"\d*\.\d+"
+    token.value = float(token.value)
+    return token
+
+def t_INTEGER(token):
+    r"0(([xX][\da-fA-F]+)|([oO][0-7]+)|([bB][10]+))|\d+"
+    token.value = literal_eval(token.value)
     return token
 
 def t_NEWLINE(token):

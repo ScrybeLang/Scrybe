@@ -57,13 +57,13 @@ def p_meta_declaration(prod):
                         | SOUNDDEC STRING
                         | SOUNDDEC list
                         | VISIBILITYDEC boolean
-                        | XDEC NUMBER
-                        | YDEC NUMBER
-                        | SIZEDEC NUMBER
-                        | DIRECTIONDEC NUMBER
+                        | XDEC number
+                        | YDEC number
+                        | SIZEDEC number
+                        | DIRECTIONDEC number
                         | DRAGGABLEDEC boolean
                         | ROTATIONSTYLEDEC STRING
-                        | LAYERDEC NUMBER"""
+                        | LAYERDEC number"""
     if prod.slice[1].type in ("COSTUMEDEC", "SOUNDDEC"):
         value = prod[2] if isinstance(prod[2], list) else [prod[2]]
     else:
@@ -113,6 +113,12 @@ def p_statement_list(prod):
         prod[0] = [prod[1]]
     else:
         prod[0] = [prod[1]] + prod[2]
+
+def p_number(prod):
+    """number : DECIMAL
+              | INTEGER"""
+    print(prod.slice)
+    prod[0] = prod[1]
 
 def p_boolean(prod):
     """boolean : TRUE
@@ -208,7 +214,7 @@ def p_expression(prod):
                   | condition
                   | concatenation
                   | STRING
-                  | NUMBER
+                  | number
                   | variable
                   | index"""
     if len(prod) == 2:
