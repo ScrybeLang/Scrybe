@@ -59,7 +59,8 @@ number_conditions = {
     ">":   GreaterThan,
     "<=":  lambda x, y: Not(GreaterThan(x, y)),
     ">=":  lambda x, y: Not(LessThan(x, y)),
-    "==":  Equals
+    "==":  Equals,
+    "!=":  lambda x, y: Not(Equals(x, y))
 }
 
 # For if the left operand is a number
