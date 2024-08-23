@@ -117,7 +117,6 @@ def p_statement_list(prod):
 def p_number(prod):
     """number : DECIMAL
               | INTEGER"""
-    print(prod.slice)
     prod[0] = prod[1]
 
 def p_boolean(prod):
