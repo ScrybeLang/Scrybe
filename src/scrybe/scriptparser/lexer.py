@@ -4,7 +4,7 @@ from ..logger import code_error, set_lexpos
 
 tokens = [
     "SPRITENAMEDEC", "COSTUMEDEC", "SOUNDDEC", "XDEC", "YDEC", "VISIBILITYDEC", "SIZEDEC", "DIRECTIONDEC", "DRAGGABLEDEC", "ROTATIONSTYLEDEC", "LAYERDEC",
-    "SEMICOLON", "VARIABLE", "SYMBOL", "EQUALS",
+    "COLON", "SEMICOLON", "VARIABLE", "SYMBOL", "EQUALS",
     "STRING", "DECIMAL", "INTEGER",
     "LPAREN", "RPAREN", "LBRACKET", "RBRACKET", "LBRACE", "RBRACE", "DOT", "COMMA", "CONCAT",
     "PLUS", "MINUS", "TIMES", "DIVIDEDBY", "MODULO", "EXPONENT", "UMINUS",
@@ -28,7 +28,11 @@ reserved = {
     "false":    "FALSE",
     "warp":     "WARP",
     "function": "FUNCTION",
-    "return":   "RETURN"
+    "return":   "RETURN",
+    "num":      "NUMTYPE",
+    "str":      "STRTYPE",
+    "bool":     "BOOLTYPE",
+    "var":      "VARTYPE"
 }
 
 tokens.extend(reserved.values())
@@ -45,6 +49,7 @@ t_DRAGGABLEDEC        = r"\#draggable"
 t_ROTATIONSTYLEDEC    = r"\#rotationstyle"
 t_LAYERDEC            = r"\#layer"
 
+t_COLON               = r"\:"
 t_SEMICOLON           = r"\;"
 t_EQUALS              = r"\="
 

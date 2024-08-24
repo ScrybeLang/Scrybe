@@ -22,7 +22,8 @@ class ScriptBuilder:
         #     <function name>: {
         #         "callable":   <callable object>,
         #         "parameters": <parameter count>,
-        #         "output":     <output variable>
+        #         "type":       <return type>,
+        #         "output":     <output variable object>
         #     },
         #     ...
         # }
@@ -59,44 +60,42 @@ class ScriptBuilder:
             operand_1 = self.translate_expression(expression["operand 1"])
             operand_2 = self.translate_expression(expression["operand 2"])
 
+            type_1 = self.get_type(operand_1)
+            type_2 = self.get_type(operand_2)
+            if type_1 not in ("number", "variable"):
+                code_error(f"Left operand must be a number, not a {type_1}")
+            if type_2 not in ("number", "variable"):
+                code_error(f"Right operand must be a number, not a {type_2}")
+
             return operation(operand_1, operand_2)
 
         if expression["type"] == "condition":
             return self.translate_boolean(expression)
 
         if expression["type"] == "unary minus":
-            return self.translate_expression(expression["expression"]) * -1
+            to_negate = self.translate_expression(expression["expression"])
+            to_negate_type = self.get_type(to_negate)
+
+            if to_negate_type not in ("number", "variable"):
+                code_error(f"Operand must be a number, not a {to_negate_type}")
+
+            return to_negate * -1
 
         if expression["type"] == "variable":
-            return self.resolve_data_name(expression["variable"])["object"]
+            return self.resolve_data_name(expression["variable"])
 
         if expression["type"] == "index":
-            expression_target = expression["target"]
-            expression_index = expression["index"]
+            target = self.translate_expression(expression["target"])
+            index = self.translate_expression(expression["index"])
 
-            try:
-                # Add one to the index because Scratch has one-based indexing
-                index = self.translate_expression(expression_index) + 1
-            except:
-                if isinstance(expression_index, dict):
-                    set_lexpos(expression_index["lexpos"])
-                code_error("Index must be numerical")
+            self.check_index_types(target, index)
 
-            # For literals
-            if not isinstance(expression_target, dict):
-                return LetterOf(index, expression_target)
+            # Scratch has one-based indexing
+            index += 1
 
-            if expression_target["type"] == "variable":
-                dict_entry = self.resolve_data_name(expression_target["variable"])
-                variable_object = dict_entry["object"]
-
-                if dict_entry["type"] == "list":
-                    return ItemOfList(index, variable_object)
-                return LetterOf(index, variable_object)
-
-            # Any other expression
-            target_object = self.translate_expression(expression_target)
-            return LetterOf(index, target_object)
+            if self.get_type(target) == "list":
+                return ItemOfList(index, target)
+            return LetterOf(index, target)
 
         if expression["type"] == "get attribute":
             # Check if attribute is of a list/variable
@@ -149,13 +148,19 @@ class ScriptBuilder:
             return callable_object(*arguments)
 
         if expression["type"] == "concatenation":
-            one = self.translate_expression(expression["one"])
-            two = self.translate_expression(expression["two"])
+            left = self.translate_expression(expression["one"])
+            right = self.translate_expression(expression["two"])
+            left_type = self.get_type(left)
+            right_type = self.get_type(right)
 
-            if isinstance(one, str) and isinstance(two, str):
-                return one + two
+            if left_type == "list" or right_type == "list":
+                # Can concatenate everything except a list, including numbers
+                code_error(f"Cannot concatenate a {left_type} to a {right_type}")
 
-            return Join(one, two)
+            if isinstance(left, str) and isinstance(right, str):
+                return left + right
+
+            return Join(left, right)
 
     def translate_boolean(self, expression):
         if isinstance(expression, bool):
@@ -218,7 +223,7 @@ class ScriptBuilder:
             return local_variables[f"{self.variable_prefix}_{data_name}"]
 
         # Lastly, check scoped variables
-        for encoded_name, dict_entry in local_variables.items():
+        for encoded_name, variable_object in local_variables.items():
             if any(encoded_name.startswith(i) for i in ("g_", "s_", "b_", "fo_", "bfo_")):
                 continue
 
@@ -227,13 +232,35 @@ class ScriptBuilder:
 
             if name == data_name and scope_ID in [self.current_scope_ID, *self._scope_stack]:
                 # `scope_ID` can either be the current scope ID or in the stack
-                return dict_entry
+                return variable_object
 
         # Variable wasn't found, either error or implicitly return None
         if not allow_nonexistent:
             code_error("Variable not found")
 
-    def add_variable(self, variable_name, variable_value):
+    # Get type of object ("number", "string", or "list")
+    def get_type(self, object):
+        if isinstance(object, (list, List)): return "list"
+        if isinstance(object, (int, float)): return "number"
+        if isinstance(object, str):          return "string"
+
+        return object.type
+
+    # Used in both index getters and setters
+    def check_index_types(self, target, index):
+        target_type = self.get_type(target)
+        index_type = self.get_type(index)
+
+        if target_type == "number":
+            # Numbers are the only things that can't be indexed
+            # This sounds weird at first but makes sense because an "any" variable
+            # should be able to be indexed normally in addition to strings and lists
+            code_error("Index target must be a string or a list, not a number")
+
+        if index_type not in ("number", "variable"):
+            code_error(f"Index must be a number, not a {index_type}")
+
+    def add_variable(self, variable_name, variable_type, variable_value):
         prefix = self.variable_prefix
         current_scope = self.current_scope_ID
         if current_scope > 0:
@@ -241,8 +268,10 @@ class ScriptBuilder:
 
         variable_name = f"{prefix}_{variable_name}"
 
-        dict_entry = self.projectbuilder.add_variable(variable_name, variable_value, self.target)
-        return dict_entry["object"]
+        return self.projectbuilder.add_variable(
+            variable_name, variable_type, variable_value,
+            self.target
+        )
 
     # Returns a list of blocks necessary to set any value
     def get_variable_setter(self, statement):
@@ -253,32 +282,35 @@ class ScriptBuilder:
 
         if to_assign["type"] == "variable":
             variable_name = to_assign["variable"]
-            is_literal_list = isinstance(variable_value, list)
-            is_variable_list = isinstance(variable_value, List)
+            value_is_list = isinstance(variable_value, (list, List))
 
-            dict_entry = self.resolve_data_name(variable_name, allow_nonexistent=True)
-            if dict_entry:
+            variable_object = self.resolve_data_name(variable_name, allow_nonexistent=True)
+            if variable_object:
                 # Variable already exists
-                variable_type = dict_entry["type"]
-                variable_object = dict_entry["object"]
+                variable_type = variable_object.type
 
-                if variable_type != "list" and (is_literal_list or is_variable_list):
+                if variable_type != "list" and value_is_list:
                     code_error("Cannot assign a list value to a non-list")
 
-                if variable_type == "list" and not (is_literal_list or is_variable_list):
+                if variable_type == "list" and not value_is_list:
                     code_error("Cannot assign variable value to a list")
 
             else:
                 # Variable does not yet exist, create and set it
                 initial_value = variable_value
                 if not utils.is_literal(initial_value):
-                    initial_value = [] if is_literal_list else ""
+                    initial_value = [] if value_is_list else ""
 
                 # This is just the initial value, which doesnt't matter much;
                 # the setter block is added next
-                variable_object = self.add_variable(variable_name, initial_value)
+                variable_type = statement["variable type"]
+                variable_object = self.add_variable(variable_name, variable_type, initial_value)
 
-            if is_literal_list:
+            value_type = self.get_type(variable_value)
+            if value_type != variable_type and variable_type != "variable" and value_type != "variable":
+                code_error(f"Value must be a {variable_type}, not a {value_type}")
+
+            if value_is_list:
                 # Add each item to the list separately
                 return [
                     ClearList(variable_object),
@@ -305,12 +337,12 @@ class ScriptBuilder:
         variable_dictionary = translations.variable_reporters if function_type == "reporter" else translations.variable_functions
         attribute = expression["attribute"]
 
-        dict_entry = self.resolve_data_name(expression["object"])
+        variable_object = self.resolve_data_name(expression["object"])
 
         # Set lex position of attribute (+ 1 for the period)
         set_lexpos(expression["lexpos"] + len(expression["object"]) + 1)
 
-        if dict_entry["type"] == "list":
+        if variable_object.type == "list":
             if attribute not in list_dictionary:
                 code_error("List function not found")
 
@@ -321,7 +353,6 @@ class ScriptBuilder:
 
             function = variable_dictionary[expression["attribute"]]
 
-        variable_object = dict_entry["object"]
         return function(*arguments, variable_object)
 
     def check_argument_count(self, function_object, given_argument_count):
@@ -384,7 +415,7 @@ class ScriptBuilder:
                 operand = self.translate_expression(statement["operand"])
 
                 if to_assign["type"] == "variable":
-                    variable_object = self.resolve_data_name(to_assign["variable"])["object"]
+                    variable_object = self.resolve_data_name(to_assign["variable"])
                     current_script.append(SetVariable(variable_object, operation(variable_object, operand)))
 
                 if to_assign["type"] == "get attribute":
@@ -399,14 +430,19 @@ class ScriptBuilder:
                     current_script.append(setter_function(new_value))
 
             if statement["type"] == "index assign":
-                dict_entry = self.resolve_data_name(statement["target"]["variable"])
+                target = self.translate_expression(statement["target"])
+                index = self.translate_expression(statement["index"])
+                target_type = self.get_type(target)
 
-                if dict_entry["type"] == "list":
-                    list_object = dict_entry["object"]
-                    index = self.translate_expression(statement["index"]) + 1
-                    value = self.translate_expression(statement["value"])
+                self.check_index_types(target, index)
 
-                    current_script.append(ReplaceInList(index, list_object, value))
+                if target_type != "list":
+                    code_error(f"Can only assign to indices in a list, not a {target_type}")
+
+                index = self.translate_expression(statement["index"]) + 1
+                value = self.translate_expression(statement["value"])
+
+                current_script.append(ReplaceInList(index, target, value))
 
             if statement["type"] == "function call":
                 function = statement["function"]
@@ -513,6 +549,11 @@ class ScriptBuilder:
                         function_output_variable = self.functions[self.current_function_building]["output"]
                         return_expression = self.translate_expression(return_expression)
 
+                        expected_type = function_output_variable.type
+                        given_type = self.get_type(return_expression)
+                        if expected_type != given_type and expected_type != "variable":
+                            code_error(f"Return type must be a {expected_type}, not a {given_type}")
+
                         current_script.append(SetVariable(function_output_variable, return_expression))
 
                 # Returning from a hat
@@ -533,11 +574,13 @@ class ScriptBuilder:
             else:
                 self.add_variable(
                     statement["variable"]["variable"],
+                    statement["variable type"],
                     self.translate_expression(statement["value"])
                 )
 
     def build_functions(self, functions):
         for function in functions:
+            function_type = function["return type"]
             function_name = function["name"]
             function_parameters = function["parameters"]
             function_warp = function["warp"]
@@ -557,11 +600,11 @@ class ScriptBuilder:
 
             # Redefine arguments in case the function modifies them
             for parameter_name, parameter_object in zip(function_parameters, parameter_objects):
-                variable_object = self.add_variable(parameter_name, "")
+                variable_object = self.add_variable(parameter_name, "variable", "")
                 this_script.append(SetVariable(variable_object, parameter_object))
 
             output_variable_name = f"fo_{function_name}" if self.is_sprite else f"bfo_{function_name}"
-            output_variable = self.projectbuilder.add_variable(output_variable_name, "", self.target)["object"]
+            output_variable = self.projectbuilder.add_variable(output_variable_name, function_type, "", self.target)
             self.functions[function_name] = {"output": output_variable} # Add to functions dictionary first
                                                                         # so it can be used when returning
             self.current_function_building = function_name

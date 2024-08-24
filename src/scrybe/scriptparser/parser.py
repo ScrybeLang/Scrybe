@@ -162,8 +162,15 @@ def p_variable(prod):
 
 def p_index(prod):
     """index : expression LBRACKET expression RBRACKET"""
+    if isinstance(prod[1], dict):
+        lexpos = prod[1]["lexpos"]
+    elif hasattr(parser.symstack[-1], "lexpos"):
+        lexpos = parser.symstack[-1].lexpos
+    else:
+        lexpos = parser.symstack[-1].value["lexpos"]
+
     prod[0] = {
-        "lexpos": prod[1]["lexpos"],
+        "lexpos": lexpos,
         "type":   "index",
         "target": prod[1],
         "index":  prod[3]
@@ -224,8 +231,8 @@ def p_expression(prod):
             # Unary minus on a number is just negation ._.
             prod[0] = -float(prod[2])
         else:
-            prod[0] = {
-                "lexpos":     prod[2]["lexpos"],
+            prod[0] = {                                                         # ↓ Position of expression
+                "lexpos":     prod[2]["lexpos"] if isinstance(prod[2], dict) else parser.symstack[-1].lexpos + 2,
                 "type":       "unary minus",
                 "expression": prod[2]
             }
@@ -258,14 +265,35 @@ def p_in_place_assignment(prod):
         "operand":   prod[3]
     }
 
+def p_type(prod):
+    """type : NUMTYPE
+            | STRTYPE
+            | BOOLTYPE
+            | VARTYPE"""
+    match prod[1]:
+        case "num":  prod[0] = "number"
+        case "str":  prod[0] = "string"
+        case "bool": prod[0] = "boolean"
+        case "var":  prod[0] = "variable"
+
+def p_type_declaration(prod):
+    """type_declaration : COLON type
+                        | """
+    if len(prod) == 3:
+        prod[0] = prod[2]
+    else:
+        prod[0] = "variable"
+
 def p_set_variable(prod):
-    """set_variable : variable EQUALS expression
-                    | variable EQUALS list"""
+    """set_variable : variable type_declaration EQUALS expression
+                    | variable type_declaration EQUALS list"""
+    variable_type = "list" if isinstance(prod[4], list) else prod[2]
     prod[0] = {
-        "lexpos":   prod[1]["lexpos"],
-        "type":     "assignment",
-        "variable": prod[1],
-        "value":    prod[3]
+        "lexpos":        prod[1]["lexpos"],
+        "type":          "assignment",
+        "variable":      prod[1],
+        "variable type": variable_type,
+        "value":         prod[4]
     }
 
 def p_function_call(prod):
@@ -399,25 +427,25 @@ def p_return(prod):
 
 def p_function_dec(prod):
     """function_dec : FUNCTION VARIABLE function_parameters container_body
-                    | WARP FUNCTION VARIABLE function_parameters container_body"""
-    if len(prod) == 5:
-        name = prod[2]
-        parameters = prod[3]
-        warp = False
-        body = prod[4]
-    else:
-        name = prod[3]
-        parameters = prod[4]
-        warp = True
-        body = prod[5]
+                    | type FUNCTION VARIABLE function_parameters container_body
+                    | WARP FUNCTION VARIABLE function_parameters container_body
+                    | WARP type FUNCTION VARIABLE function_parameters container_body"""
+    warp = prod[1] == "warp"
+    is_long = len(prod) == (7 if warp else 6)
+
+    return_type = prod[2] if warp and is_long else prod[1] if is_long else "variable"
+    name        = prod[4] if warp and is_long else prod[3] if is_long or warp else prod[2]
+    parameters  = prod[5] if warp and is_long else prod[4] if is_long or warp else prod[3]
+    body        = prod[6] if warp and is_long else prod[5] if is_long else prod[4]
 
     prod[0] = {
-        "lexpos":     prod.lexpos(1),
-        "type":       "function declaration",
-        "name":       name,
-        "parameters": parameters,
-        "warp":       warp,
-        "body":       body
+        "lexpos":      prod.lexpos(1),
+        "type":        "function declaration",
+        "return type": return_type,
+        "name":        name,
+        "parameters":  parameters,
+        "warp":        warp,
+        "body":        body
     }
 
 def p_error(token):

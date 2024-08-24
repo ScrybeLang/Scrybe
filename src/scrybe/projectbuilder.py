@@ -21,10 +21,7 @@ class ProjectBuilder:
         self.broadcasts = {}
         # Variables: {
         #     "global": {
-        #         <variable name>: {                    \
-        #             "type":   <"variable" or "list">, | Single variable schema
-        #             "object": <variable object>       |
-        #         },                                    /
+        #         <variable name>: <variable object>  <- Single variable schema
         #         ...
         #     },
         #     "local": {
@@ -72,28 +69,24 @@ class ProjectBuilder:
             )
 
     # `variable_name` should already be scope formatted
-    def add_variable(self, variable_name, variable_value, target=None):
+    def add_variable(self, variable_name, variable_type, variable_value, target=None):
         target = target or self.project.stage
 
-        is_list = isinstance(variable_value, list)
-        function = target.createList if is_list else target.createVariable
+        function = target.createList if variable_type == "list" else target.createVariable
         variable_object = function(variable_name, variable_value)
-        dictionary_entry = {
-            "type":   "list" if is_list else "variable",
-            "object": variable_object
-        }
+        variable_object.type = variable_type
 
         if variable_name.startswith("g_") or variable_name.startswith("br_"):
-            self.variables["global"][variable_name] = dictionary_entry
-            debug(f'    Created global variable "{variable_name}" ')
+            self.variables["global"][variable_name] = variable_object
+            debug(f'    Created global {variable_type} "{variable_name}" ')
         else:
             if target._is_stage:
-                self.variables["local"]["stage"][variable_name] = dictionary_entry
+                self.variables["local"]["stage"][variable_name] = variable_object
             else:
-                self.variables["local"]["sprites"][target.name][variable_name] = dictionary_entry
-            debug(f'    Created local variable "{variable_name}" ')
+                self.variables["local"]["sprites"][target.name][variable_name] = variable_object
+            debug(f'    Created local {variable_type} "{variable_name}" ')
 
-        return dictionary_entry
+        return variable_object
 
     def get_broadcast(self, broadcast_name):
         if broadcast_name not in self.broadcasts:
