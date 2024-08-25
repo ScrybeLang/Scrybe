@@ -2,6 +2,7 @@ from .setupparser import parse_file as parse_setup
 from .scriptparser import parse_file as parse_script
 from .projectbuilder import ProjectBuilder
 from .logger import log_prefixes, logger, debug, info, warn, error
+from . import filestate
 import os
 import glob
 import sys
@@ -84,20 +85,27 @@ def main():
 
     debug("Applying setup")
     if os.path.exists("setup.sbc"):
-        projectbuilder.apply_setup(parse_setup("setup.sbc"))
+        filestate.open_file("setup.sbc")
+        projectbuilder.apply_setup(parse_setup())
+        filestate.close_file()
+
         info("Setup applied")
     else:
         warn("Setup file not found")
 
     debug("Adding stage")
     if os.path.exists("stage.sbs"):
-        projectbuilder.add_stage(parse_script("stage.sbs"))
+        filestate.open_file("stage.sbs")
+        projectbuilder.add_stage(parse_script())
+        filestate.close_file()
+
     else:
         warn("Stage not found")
 
     debug("Searching for sprite folder")
     if not os.path.exists("sprites"):
         warn("Sprites folder not found")
+
     else:
         debug("Gathering sprites")
         sprite_paths = glob.glob("sprites/*.sbs")
@@ -107,10 +115,11 @@ def main():
         debug("Adding sprites")
         for filepath in sprite_paths:
             debug(f'Adding sprite from "{filepath}"')
-            sprite_name = projectbuilder.add_sprite(
-                parse_script(filepath),
-                os.path.basename(filepath)
-            )
+
+            filestate.open_file(filepath)
+            sprite_name = projectbuilder.add_sprite(parse_script(), os.path.basename(filepath))
+            filestate.close_file()
+
             info(f'Added sprite "{sprite_name}"')
 
     debug("Building project")

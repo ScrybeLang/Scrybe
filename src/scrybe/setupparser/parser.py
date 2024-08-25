@@ -52,19 +52,40 @@ def p_file_declaration(prod):
     }
 
 def p_variable_list(prod):
-    """variable_list : variable_dec variable_list
-                     | variable_dec"""
+    """variable_list : set_variable variable_list
+                     | set_variable"""
     if len(prod) == 3:
         prod[0] = [prod[1]] + prod[2]
     else:
         prod[0] = [prod[1]]
 
-def p_variable_dec(prod):
-    """variable_dec : VARIABLE EQUALS expression SEMICOLON"""
+def p_type_declaration(prod):
+    """type_declaration : COLON NUMTYPE
+                        | COLON STRTYPE
+                        | COLON BOOLTYPE
+                        | COLON VARTYPE
+                        | """
+    if len(prod) == 3:
+        match prod[2]:
+            case "num":  prod[0] = "number"
+            case "str":  prod[0] = "string"
+            case "bool": prod[0] = "boolean"
+            case "var":  prod[0] = "variable"
+    else:
+        prod[0] = "variable"
+
+def p_set_variable(prod):
+    """set_variable : VARIABLE type_declaration EQUALS expression SEMICOLON"""
     prod[0] = {
         "name":  prod[1],
-        "value": prod[3]
+        "type":  prod[2],
+        "value": prod[4]
     }
+
+def p_number(prod):
+    """number : DECIMAL
+              | INTEGER"""
+    prod[0] = prod[1]
 
 def p_expression(prod):
     """expression : expression PLUS expression
@@ -76,7 +97,7 @@ def p_expression(prod):
                   | MINUS expression %prec UMINUS
                   | LPAREN expression RPAREN
                   | STRING
-                  | NUMBER
+                  | number
                   | condition
                   | list"""
     if len(prod) == 2:
@@ -169,12 +190,7 @@ def p_error(token):
 
     exit()
 
-# parser = yacc.yacc(debug=False, optimize=True, errorlog=utils.NullBuffer)
-parser = yacc.yacc()
+parser = yacc.yacc(debug=False, optimize=True, errorlog=utils.NullBuffer)
 
-def parse_file(file_path):
-    filestate.open_file(file_path)
-    ast = parser.parse(filestate.read_file(), lexer=lexer)
-    filestate.close_file()
-
-    return ast
+def parse_file():
+    return parser.parse(filestate.read_file(), lexer=lexer)

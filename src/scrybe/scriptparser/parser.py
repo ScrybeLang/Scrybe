@@ -509,9 +509,5 @@ def p_error(token):
 
 parser = yacc.yacc(debug=False, optimize=True, errorlog=utils.NullBuffer)
 
-def parse_file(file_path):
-    filestate.open_file(file_path)
-    ast = parser.parse(filestate.read_file(), lexer=lexer)
-    filestate.close_file()
-
-    return ast
+def parse_file():
+    return parser.parse(filestate.read_file(), lexer=lexer)

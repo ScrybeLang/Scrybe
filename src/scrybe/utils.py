@@ -52,6 +52,14 @@ def is_literal(expression):
 
     return True
 
+def get_type(object):
+    if isinstance(object, bool):         return "boolean"
+    if isinstance(object, (int, float)): return "number"
+    if isinstance(object, str):          return "string"
+    if isinstance(object, list):         return "list"
+
+    return object.type
+
 # Prevent PLY warning/error logs from showing (so smart!)
 class _NullBuffer:
     def write(self, *args, **kwargs):

@@ -3,6 +3,7 @@ from ScratchGen.constants import *
 from .scriptbuilder import ScriptBuilder
 from .logger import debug, warn, code_error, set_lexpos
 from . import filestate
+from . import utils
 import glob
 import os
 
@@ -63,10 +64,15 @@ class ProjectBuilder:
 
         # Add global variables
         for variable in setup_ast["variables"]:
-            self.add_variable(
-                f"g_{variable["name"]}",
-                variable["value"]
-            )
+            variable_name = variable["name"]
+            variable_value = variable["value"]
+
+            variable_type = variable["type"]
+            given_type = utils.get_type(variable_value)
+            if variable_type != given_type and variable_type != "variable":
+                code_error(f"Value must be a {variable_type}, not a {given_type}")
+
+            self.add_variable(f"g_{variable_name}", variable_type, variable_value)
 
     # `variable_name` should already be scope formatted
     def add_variable(self, variable_name, variable_type, variable_value, target=None):

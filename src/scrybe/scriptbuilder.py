@@ -60,8 +60,8 @@ class ScriptBuilder:
             operand_1 = self.translate_expression(expression["operand 1"])
             operand_2 = self.translate_expression(expression["operand 2"])
 
-            type_1 = self.get_type(operand_1)
-            type_2 = self.get_type(operand_2)
+            type_1 = utils.get_type(operand_1)
+            type_2 = utils.get_type(operand_2)
             if type_1 not in ("number", "variable"):
                 code_error(f"Left operand must be a number, not a {type_1}")
             if type_2 not in ("number", "variable"):
@@ -74,7 +74,7 @@ class ScriptBuilder:
 
         if expression["type"] == "unary minus":
             to_negate = self.translate_expression(expression["expression"])
-            to_negate_type = self.get_type(to_negate)
+            to_negate_type = utils.get_type(to_negate)
 
             if to_negate_type not in ("number", "variable"):
                 code_error(f"Operand must be a number, not a {to_negate_type}")
@@ -93,7 +93,7 @@ class ScriptBuilder:
             # Scratch has one-based indexing
             index += 1
 
-            if self.get_type(target) == "list":
+            if utils.get_type(target) == "list":
                 return ItemOfList(index, target)
             return LetterOf(index, target)
 
@@ -150,8 +150,8 @@ class ScriptBuilder:
         if expression["type"] == "concatenation":
             left = self.translate_expression(expression["one"])
             right = self.translate_expression(expression["two"])
-            left_type = self.get_type(left)
-            right_type = self.get_type(right)
+            left_type = utils.get_type(left)
+            right_type = utils.get_type(right)
 
             if left_type == "list" or right_type == "list":
                 # Can concatenate everything except a list, including numbers
@@ -238,18 +238,10 @@ class ScriptBuilder:
         if not allow_nonexistent:
             code_error("Variable not found")
 
-    # Get type of object ("number", "string", or "list")
-    def get_type(self, object):
-        if isinstance(object, (list, List)): return "list"
-        if isinstance(object, (int, float)): return "number"
-        if isinstance(object, str):          return "string"
-
-        return object.type
-
     # Used in both index getters and setters
     def check_index_types(self, target, index):
-        target_type = self.get_type(target)
-        index_type = self.get_type(index)
+        target_type = utils.get_type(target)
+        index_type = utils.get_type(index)
 
         if target_type == "number":
             # Numbers are the only things that can't be indexed
@@ -306,7 +298,7 @@ class ScriptBuilder:
                 variable_type = statement["variable type"]
                 variable_object = self.add_variable(variable_name, variable_type, initial_value)
 
-            value_type = self.get_type(variable_value)
+            value_type = utils.get_type(variable_value)
             if value_type != variable_type and variable_type != "variable" and value_type != "variable":
                 code_error(f"Value must be a {variable_type}, not a {value_type}")
 
@@ -432,7 +424,7 @@ class ScriptBuilder:
             if statement["type"] == "index assign":
                 target = self.translate_expression(statement["target"])
                 index = self.translate_expression(statement["index"])
-                target_type = self.get_type(target)
+                target_type = utils.get_type(target)
 
                 self.check_index_types(target, index)
 
@@ -550,7 +542,7 @@ class ScriptBuilder:
                         return_expression = self.translate_expression(return_expression)
 
                         expected_type = function_output_variable.type
-                        given_type = self.get_type(return_expression)
+                        given_type = utils.get_type(return_expression)
                         if expected_type != given_type and expected_type != "variable":
                             code_error(f"Return type must be a {expected_type}, not a {given_type}")
 

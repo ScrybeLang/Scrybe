@@ -15,6 +15,10 @@ def _exponent_function(base, exponent):
     base_numeric = isinstance(base, (int, float))
     exponent_numeric = isinstance(exponent, (int, float))
 
+    # For literal numbers (same as `operator.pow` but we still need support for other expressions)
+    if base_numeric and exponent_numeric:
+        return base ** exponent
+
     # Simple cases
     if not base_numeric and exponent_numeric:
         if exponent == -1:  return Divide(1, base)              # x ** -1 == 1 / x
@@ -22,13 +26,9 @@ def _exponent_function(base, exponent):
         if exponent == 0.5: return Operation(SQUARE_ROOT, base) # x ** 0.5 == sqrt(x)
         if exponent == 1:   return base                         # x ** 1 == x
 
-    # For cases when it would take less blocks just to multiply it manually
-    if isinstance(exponent, int) and 0 < exponent <= 5:
-        return _chain_multiply(base, exponent)
-
-    # For literal numbers (same as `operator.pow` but we still need support for other expressions)
-    if base_numeric and exponent_numeric:
-        return base ** exponent
+    # # For cases when it would take less blocks just to multiply it manually
+    # if isinstance(exponent, int) and 0 < exponent <= 5:
+    #     return _chain_multiply(base, exponent)
 
     # The first tricky math part; this only works with positive bases but any exponent works
     exponent_part = Operation(TEN_TO_THE, Multiply(exponent, Operation(LOGARITHM, Operation(ABSOLUTE, base))))
