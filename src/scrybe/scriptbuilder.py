@@ -62,9 +62,9 @@ class ScriptBuilder:
 
             type_1 = utils.get_type(operand_1)
             type_2 = utils.get_type(operand_2)
-            if type_1 not in ("number", "variable"):
+            if type_1 not in ("number", "boolean", "variable"):
                 code_error(f"Left operand must be a number, not a {type_1}")
-            if type_2 not in ("number", "variable"):
+            if type_2 not in ("number", "boolean", "variable"):
                 code_error(f"Right operand must be a number, not a {type_2}")
 
             return operation(operand_1, operand_2)
@@ -76,7 +76,7 @@ class ScriptBuilder:
             to_negate = self.translate_expression(expression["expression"])
             to_negate_type = utils.get_type(to_negate)
 
-            if to_negate_type not in ("number", "variable"):
+            if to_negate_type not in ("number", "boolean", "variable"):
                 code_error(f"Operand must be a number, not a {to_negate_type}")
 
             return to_negate * -1
@@ -243,13 +243,13 @@ class ScriptBuilder:
         target_type = utils.get_type(target)
         index_type = utils.get_type(index)
 
-        if target_type == "number":
-            # Numbers are the only things that can't be indexed
+        if target_type in ("number", "boolean"):
+            # Numbers and booleans are the only things that can't be indexed
             # This sounds weird at first but makes sense because an "any" variable
             # should be able to be indexed normally in addition to strings and lists
-            code_error("Index target must be a string or a list, not a number")
+            code_error(f"Index target must be a string or a list, not a {target}")
 
-        if index_type not in ("number", "variable"):
+        if index_type not in ("number", "boolean", "variable"):
             code_error(f"Index must be a number, not a {index_type}")
 
     def add_variable(self, variable_name, variable_type, variable_value):
@@ -299,7 +299,10 @@ class ScriptBuilder:
                 variable_object = self.add_variable(variable_name, variable_type, initial_value)
 
             value_type = utils.get_type(variable_value)
-            if value_type != variable_type and variable_type != "variable" and value_type != "variable":
+            if value_type == "number" and variable_type == "boolean":
+                # Automatically cast numbers into booleans when necessary
+                variable_value = Not(Equals(variable_value, 0))
+            elif value_type != variable_type and variable_type != "variable" and value_type != "variable":
                 code_error(f"Value must be a {variable_type}, not a {value_type}")
 
             if value_is_list:
@@ -543,7 +546,10 @@ class ScriptBuilder:
 
                         expected_type = function_output_variable.type
                         given_type = utils.get_type(return_expression)
-                        if expected_type != given_type and expected_type != "variable":
+                        if given_type == "number" and expected_type == "boolean":
+                            # Automatically cast numbers into booleans when necessary
+                            return_expression = Not(Equals(return_expression, 0))
+                        elif expected_type != given_type and expected_type != "variable":
                             code_error(f"Return type must be a {expected_type}, not a {given_type}")
 
                         current_script.append(SetVariable(function_output_variable, return_expression))
