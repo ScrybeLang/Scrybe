@@ -3,6 +3,15 @@ from ScratchGen import constants
 from ScratchGen.datacontainer import List
 import operator
 
+# Get the amount of objects this object represents
+# For example: "Equals(Add(2, 2), 4)" => 2
+#              "Divide(2, 3)"         => 1
+#              "15"                   => 1
+def get_depth(object):
+    if isinstance(object, (int, float)) or not object.contained_blocks:
+        return 1
+    return sum(map(get_depth, object.contained_blocks)) + 1
+
 def _chain_multiply(base, exponent):
     if exponent == 2:
         # x ** 2 == x * x
@@ -26,9 +35,12 @@ def _exponent_function(base, exponent):
         if exponent == 0.5: return Operation(SQUARE_ROOT, base) # x ** 0.5 == sqrt(x)
         if exponent == 1:   return base                         # x ** 1 == x
 
-    # # For cases when it would take less blocks just to multiply it manually
-    # if isinstance(exponent, int) and 0 < exponent <= 5:
-    #     return _chain_multiply(base, exponent)
+    # For cases when it would take less blocks just to multiply it manually
+    if isinstance(exponent, int):
+        base_depth = get_depth(base)
+        chained_object_depth = base_depth * (exponent - 1) # Depth of resulting chained object
+        if 0 < chained_object_depth < 13: # Full exponentiation has a depth of 13 objects
+            return _chain_multiply(base, exponent)
 
     # The first tricky math part; this only works with positive bases but any exponent works
     exponent_part = Operation(TEN_TO_THE, Multiply(exponent, Operation(LOGARITHM, Operation(ABSOLUTE, base))))
