@@ -100,7 +100,7 @@ class ScriptBuilder:
         if expression["type"] == "get attribute":
             # Check if attribute is of a list/variable
             if self.resolve_data_name(expression["object"], allow_nonexistent=True):
-                return self.translate_variable_attribute(expression, [], "reporter")
+                return self.translate_variable_attribute(expression, "field")
 
             if expression["object"] == "this" and expression["attribute"] == "is_clone":
                 if not self.is_sprite:
@@ -131,7 +131,7 @@ class ScriptBuilder:
 
             # Check if method is of a list/variable
             if self.resolve_data_name(function["object"], allow_nonexistent=True):
-                return self.translate_variable_attribute(function, arguments, "function")
+                return self.translate_variable_attribute(function, "method", arguments)
 
             callable_object = self.get_builtin(
                 function,
@@ -327,28 +327,20 @@ class ScriptBuilder:
 
     # Get either a block or reporter from a variable function or attribute
     # For example, `my_list.length` translates to about `ListLength(my_list)`
-    def translate_variable_attribute(self, expression, arguments, function_type):
-        list_dictionary = translations.list_reporters if function_type == "reporter" else translations.list_functions
-        variable_dictionary = translations.variable_reporters if function_type == "reporter" else translations.variable_functions
+    def translate_variable_attribute(self, expression, type, arguments=[]):
+        variable_object = self.resolve_data_name(expression["object"])
+        variable_type = variable_object.type
         attribute = expression["attribute"]
 
-        variable_object = self.resolve_data_name(expression["object"])
+        dictionary = getattr(translations, f"{variable_type}_{type}s")
 
-        # Set lex position of attribute (+ 1 for the period)
-        set_lexpos(expression["lexpos"] + len(expression["object"]) + 1)
+        callable_object = dictionary.get(attribute)
+        if not callable_object:
+            # Set lex position of attribute (+ 1 for the period)
+            set_lexpos(expression["lexpos"] + len(expression["object"]) + 1)
+            code_error(f"{variable_type.title()} {type} not found")
 
-        if variable_object.type == "list":
-            if attribute not in list_dictionary:
-                code_error("List function not found")
-
-            function = list_dictionary[expression["attribute"]]
-        else:
-            if attribute not in variable_dictionary:
-                code_error("Variable function not found")
-
-            function = variable_dictionary[expression["attribute"]]
-
-        return function(*arguments, variable_object)
+        return callable_object(*arguments, variable_object)
 
     def check_argument_count(self, function_object, given_argument_count):
         parameters = [i for i in signature(function_object).parameters.values()]
@@ -464,9 +456,9 @@ class ScriptBuilder:
 
                         self.argument_error_message(0, parameter_count, len(arguments))
 
-                # Check variable/list methods
+                # Check variable/list functions
                 if not callable_object and self.resolve_data_name(function["object"], allow_nonexistent=True):
-                    current_script.append(self.translate_variable_attribute(function, arguments, "function"))
+                    current_script.append(self.translate_variable_attribute(function, "function", arguments))
                     continue
 
                 if (

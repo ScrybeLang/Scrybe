@@ -288,25 +288,51 @@ hats = {
     }
 }
 
+# Numbers
+
+number_fields = {}
+number_methods = {}
+number_functions = {}
+
+# Strings
+
+string_fields = {
+    "length": LengthOf
+}
+
+string_methods = {}
+string_functions = {}
+
+# Booleans
+
+boolean_fields = {}
+boolean_methods = {}
+boolean_functions = {}
+
+# General variables
+
+variable_fields = {**string_fields}
+variable_methods = {}
+variable_functions = {}
+
+# Lists
+
+list_fields = {
+    "length": ListLength
+}
+
+list_methods = {
+    "index":  lambda item, _list: ListIndexOf(item, _list) - 1
+}
+
 list_functions = {
     "push":   AddToList,
     "remove": lambda index, _list: DeleteOfList(index + 1, _list),
     "clear":  ClearList,
-    "insert": lambda index, item, _list: InsertIntoList(item, index + 1, _list),
-    "index":  lambda item, _list: ListIndexOf(item, _list) - 1
+    "insert": lambda index, item, _list: InsertIntoList(item, index + 1, _list)
 }
 
-list_reporters = {
-    "length": ListLength
-}
-
-variable_functions = {}
-
-variable_reporters = {
-    "length": LengthOf
-}
-
-# Resolves attribute/variable accessor expressions into the appropriate entry
+# Resolves attribute accessor expressions into the appropriate entry
 # from the dictionaries defined above.
 # For example: `this.x` -> `{... AST exp. ...}` -> `XPosition`
 def _resolve(attribute, nested_dict):
