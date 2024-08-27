@@ -129,7 +129,7 @@ class ScriptBuilder:
                 return output_object
 
             # Check if method is of a list/variable
-            if self.resolve_data_name(function["object"], allow_nonexistent=True):
+            if "object" in function and self.resolve_data_name(function["object"], allow_nonexistent=True):
                 return self.translate_variable_attribute(function, "method", arguments)
 
             callable_object = self.get_builtin(

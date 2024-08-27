@@ -1,7 +1,8 @@
 from ScratchGen.blocks import *
 from ScratchGen import constants
 from ScratchGen.datacontainer import List
-from .utils import literal_operations, copy_and_apply_type
+from .utils import get_type, check_types, literal_operations, copy_and_apply_type
+from .logger import code_error
 
 # Get the amount of objects this object represents
 # For example: "Equals(Add(2, 2), 4)" => 2
@@ -167,6 +168,21 @@ def _random_choice(item):
                                    "variable")
     return LetterOf(PickRandom(1, LengthOf(item)), item)
 
+def _convert_type(object, new_type):
+    object_type = get_type(object)
+
+    check_types((
+        "any  any",
+        "list string"
+    ),
+    "Cannot convert a {} to a {}", object_type, new_type)
+
+    if hasattr(object, "type"):
+        return copy_and_apply_type(object, new_type)
+
+    try:    return {"number": int, "string": str}[new_type](object)
+    except: code_error(f"Cannot convert {repr(object)} to a {new_type}")
+
 function_reporters = {
     "scratch": {
         "key_pressed":          (KeyPressed,   False),
@@ -201,7 +217,10 @@ function_reporters = {
         "touching_color":       (TouchingColor,      True),
         "color_touching_color": (ColorTouchingColor, True),
         "distance_to":          (DistanceTo,         True)
-    }
+    },
+
+    "tonum":                    (lambda x: _convert_type(x, "number"), False),
+    "tostr":                    (lambda x: _convert_type(x, "string"), False)
 }
 
 # `set_effect`/`change_effect` is only one function but can translate to
