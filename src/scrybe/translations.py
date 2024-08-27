@@ -1,7 +1,7 @@
 from ScratchGen.blocks import *
 from ScratchGen import constants
 from ScratchGen.datacontainer import List
-import operator
+from .utils import literal_operations, copy_and_apply_type
 
 # Get the amount of objects this object represents
 # For example: "Equals(Add(2, 2), 4)" => 2
@@ -57,7 +57,8 @@ def _exponent_function(base, exponent):
 
 def _contains(sub_item, item):
     if isinstance(item, List):
-        return ListContains(item, sub_item)
+        return copy_and_apply_type(ListContains(item, sub_item),
+                                   "variable")
     return Contains(item, sub_item)
 
 boolean_conditions = {
@@ -85,17 +86,17 @@ def _make_lambda(original_function, scratchgen_function):
     )
 
 operations = {
-    "+":   _make_lambda(operator.add,     Add),
-    "-":   _make_lambda(operator.sub,     Subtract),
-    "*":   _make_lambda(operator.mul,     Multiply),
-    "/":   _make_lambda(operator.truediv, Divide),
-    "%":   _make_lambda(operator.mod,     Modulo),
+    "+":   _make_lambda(literal_operations["+"],  Add),
+    "-":   _make_lambda(literal_operations["-"],  Subtract),
+    "*":   _make_lambda(literal_operations["*"],  Multiply),
+    "/":   _make_lambda(literal_operations["/"],  Divide),
+    "%":   _make_lambda(literal_operations["%"],  Modulo),
     "**":  _exponent_function,
-    "<":   _make_lambda(operator.lt,      number_conditions["<"]),
-    ">":   _make_lambda(operator.gt,      number_conditions[">"]),
-    "<=":  _make_lambda(operator.le,      number_conditions["<="]),
-    ">=":  _make_lambda(operator.ge,      number_conditions[">="]),
-    "==":  _make_lambda(operator.eq,      number_conditions["=="])
+    "<":   _make_lambda(literal_operations["<"],  number_conditions["<"]),
+    ">":   _make_lambda(literal_operations[">"],  number_conditions[">"]),
+    "<=":  _make_lambda(literal_operations["<="], number_conditions["<="]),
+    ">=":  _make_lambda(literal_operations[">="], number_conditions[">="]),
+    "==":  _make_lambda(literal_operations["=="], number_conditions["=="])
 }
 
 reporters = {
@@ -162,7 +163,8 @@ for constant in (
 
 def _random_choice(item):
     if isinstance(item, List):
-        return ItemOfList(PickRandom(1, ListLength(item)), item)
+        return copy_and_apply_type(ItemOfList(PickRandom(1, ListLength(item)), item),
+                                   "variable")
     return LetterOf(PickRandom(1, LengthOf(item)), item)
 
 function_reporters = {

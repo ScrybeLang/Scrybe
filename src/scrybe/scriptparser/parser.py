@@ -201,10 +201,10 @@ def p_attribute_of(prod):
 def p_concatenation(prod):
     """concatenation : expression CONCAT expression"""
     prod[0] = {
-        "lexpos": prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2),
-        "type":   "concatenation",
-        "one":    prod[1],
-        "two":    prod[3]
+        "lexpos":    prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2),
+        "type":      "concatenation",
+        "operand 1": prod[1],
+        "operand 2": prod[3]
     }
 
 def p_expression(prod):
@@ -265,11 +265,11 @@ def p_in_place_assignment(prod):
         "operand":   prod[3]
     }
 
-def p_type(prod):
-    """type : NUMTYPE
-            | STRTYPE
-            | BOOLTYPE
-            | VARTYPE"""
+def p_single_type(prod):
+    """single_type : NUMTYPE
+                   | STRTYPE
+                   | BOOLTYPE
+                   | VARTYPE"""
     match prod[1]:
         case "num":  prod[0] = "number"
         case "str":  prod[0] = "string"
@@ -277,22 +277,24 @@ def p_type(prod):
         case "var":  prod[0] = "variable"
 
 def p_type_declaration(prod):
-    """type_declaration : COLON type
+    """type_declaration : COLON single_type
+                        | LBRACKET RBRACKET
                         | """
-    if len(prod) == 3:
+    if len(prod) == 1:
+        prod[0] = "variable"
+    elif prod[1] == ":":
         prod[0] = prod[2]
     else:
-        prod[0] = "variable"
+        prod[0] = "list"
 
 def p_set_variable(prod):
     """set_variable : variable type_declaration EQUALS expression
                     | variable type_declaration EQUALS list"""
-    variable_type = "list" if isinstance(prod[4], list) else prod[2]
     prod[0] = {
         "lexpos":        prod[1]["lexpos"],
         "type":          "assignment",
         "variable":      prod[1],
-        "variable type": variable_type,
+        "variable type": prod[2],
         "value":         prod[4]
     }
 
@@ -427,9 +429,9 @@ def p_return(prod):
 
 def p_function_dec(prod):
     """function_dec : FUNCTION VARIABLE function_parameters container_body
-                    | type FUNCTION VARIABLE function_parameters container_body
+                    | single_type FUNCTION VARIABLE function_parameters container_body
                     | WARP FUNCTION VARIABLE function_parameters container_body
-                    | WARP type FUNCTION VARIABLE function_parameters container_body"""
+                    | WARP single_type FUNCTION VARIABLE function_parameters container_body"""
     warp = prod[1] == "warp"
     is_long = len(prod) == (7 if warp else 6)
 
@@ -467,6 +469,12 @@ def p_error(token):
 
     if current_token in reserved.values():
         code_error("Can't use that keyword here")
+
+    if "NUMTYPE" in expected and current_token == "VARIABLE":
+        code_error("Invalid variable type")
+
+    if "NUMTYPE" in expected:
+        code_error("Expected variable type")
 
     if stack[-1] == "expression":
         code_error("Unexpected expression")

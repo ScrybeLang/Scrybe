@@ -1,6 +1,5 @@
 from ScratchGen.block import Boolean
 from ScratchGen.blocks import *
-from ScratchGen.datacontainer import List
 from . import translations
 from . import utils
 from .logger import debug, code_error, set_lexpos
@@ -94,7 +93,7 @@ class ScriptBuilder:
             index += 1
 
             if utils.get_type(target) == "list":
-                return ItemOfList(index, target)
+                return utils.copy_and_apply_type(ItemOfList(index, target), "variable")
             return LetterOf(index, target)
 
         if expression["type"] == "get attribute":
@@ -148,19 +147,16 @@ class ScriptBuilder:
             return callable_object(*arguments)
 
         if expression["type"] == "concatenation":
-            left = self.translate_expression(expression["one"])
-            right = self.translate_expression(expression["two"])
-            left_type = utils.get_type(left)
-            right_type = utils.get_type(right)
+            operand_1 = self.translate_expression(expression["operand 1"])
+            operand_2 = self.translate_expression(expression["operand 2"])
 
-            if left_type == "list" or right_type == "list":
-                # Can concatenate everything except a list, including numbers
-                code_error(f"Cannot concatenate a {left_type} to a {right_type}")
+            utils.check_types(("string|variable string|variable",),
+                              "Cannot concatenate a {} to a {}", operand_1, operand_2)
 
-            if isinstance(left, str) and isinstance(right, str):
-                return left + right
+            if isinstance(operand_1, str) and isinstance(operand_2, str):
+                return operand_1 + operand_2
 
-            return Join(left, right)
+            return Join(operand_1, operand_2)
 
     def translate_boolean(self, expression):
         if isinstance(expression, bool):
@@ -191,19 +187,34 @@ class ScriptBuilder:
             return Not(self.translate_boolean(expression["comparand"]))
 
         if condition in translations.number_conditions:
+            comparand_1 = self.translate_expression(expression["comparand 1"])
+            comparand_2 = self.translate_expression(expression["comparand 2"])
+
+            possibilities = ["number|variable number|variable"]
+            if condition in ("==", "!="):
+                possibilities += ["string|variable string|variable"]
+
+            utils.check_types(possibilities, "Cannot compare a {} to a {}",
+                              comparand_1, comparand_2)
+
             return translations.number_conditions[condition](
                 self.translate_expression(expression["comparand 1"]),
                 self.translate_expression(expression["comparand 2"])
             )
 
         if condition in translations.boolean_conditions:
-            # Only the inputs for "in" aren't boolean inputs
-            function = self.translate_expression if condition == "in" else self.translate_boolean
+            is_in = condition == "in"
 
-            return translations.boolean_conditions[condition](
-                function(expression["comparand 1"]),
-                function(expression["comparand 2"])
-            )
+            # Only the inputs for "in" aren't boolean inputs
+            function = self.translate_expression if is_in else self.translate_boolean
+            operand_1 = function(expression["comparand 1"])
+            operand_2 = function(expression["comparand 2"])
+
+            if is_in:
+                utils.check_types(("string", "variable", "list"),
+                    "{} is not a container", operand_2)
+
+            return translations.boolean_conditions[condition](operand_1, operand_2)
 
     def resolve_data_name(self, data_name, allow_nonexistent=False):
         variables = self.projectbuilder.variables
@@ -240,17 +251,11 @@ class ScriptBuilder:
 
     # Used in both index getters and setters
     def check_index_types(self, target, index):
-        target_type = utils.get_type(target)
-        index_type = utils.get_type(index)
+        utils.check_types(("list", "string", "variable"),
+            "Index target must be a string or a list, not a {}", target)
 
-        if target_type in ("number", "boolean"):
-            # Numbers and booleans are the only things that can't be indexed
-            # This sounds weird at first but makes sense because an "any" variable
-            # should be able to be indexed normally in addition to strings and lists
-            code_error(f"Index target must be a string or a list, not a {target}")
-
-        if index_type not in ("number", "boolean", "variable"):
-            code_error(f"Index must be a number, not a {index_type}")
+        utils.check_types(("number", "variable"),
+            "Index must be a number, not a {}", index)
 
     def add_variable(self, variable_name, variable_type, variable_value):
         prefix = self.variable_prefix
@@ -272,49 +277,6 @@ class ScriptBuilder:
 
         set_lexpos(to_assign["lexpos"])
 
-        if to_assign["type"] == "variable":
-            variable_name = to_assign["variable"]
-            value_is_list = isinstance(variable_value, (list, List))
-
-            variable_object = self.resolve_data_name(variable_name, allow_nonexistent=True)
-            if variable_object:
-                # Variable already exists
-                variable_type = variable_object.type
-
-                if variable_type != "list" and value_is_list:
-                    code_error("Cannot assign a list value to a non-list")
-
-                if variable_type == "list" and not value_is_list:
-                    code_error("Cannot assign variable value to a list")
-
-            else:
-                # Variable does not yet exist, create and set it
-                initial_value = variable_value
-                if not utils.is_literal(initial_value):
-                    initial_value = [] if value_is_list else ""
-
-                # This is just the initial value, which doesnt't matter much;
-                # the setter block is added next
-                variable_type = statement["variable type"]
-                variable_object = self.add_variable(variable_name, variable_type, initial_value)
-
-            value_type = utils.get_type(variable_value)
-            if value_type == "number" and variable_type == "boolean":
-                # Automatically cast numbers into booleans when necessary
-                variable_value = Not(Equals(variable_value, 0))
-            elif value_type != variable_type and variable_type != "variable" and value_type != "variable":
-                code_error(f"Value must be a {variable_type}, not a {value_type}")
-
-            if value_is_list:
-                # Add each item to the list separately
-                return [
-                    ClearList(variable_object),
-                    *(AddToList(self.translate_expression(item), variable_object) for item in variable_value)
-                ]
-
-            else:
-                return [SetVariable(variable_object, variable_value)]
-
         # For things like `this.size = 50`
         if to_assign["type"] == "get attribute":
             return [
@@ -324,6 +286,44 @@ class ScriptBuilder:
                     "attribute"
                 )(variable_value)
             ]
+
+        # User-defined variables
+        variable_name = to_assign["variable"]
+        variable_object = self.resolve_data_name(variable_name, allow_nonexistent=True)
+
+        # Check variable type against value type
+        statement_variable_type = statement["variable type"]
+        if variable_object:
+            # Check that the variable isn't being redeclared as something different
+            variable_type = variable_object.type
+            if statement_variable_type != variable_type and statement_variable_type != "variable":
+                code_error(f"Cannot redeclare a {variable_type} as a {statement_variable_type}")
+        else:
+            variable_type = statement_variable_type
+        value_type = utils.get_type(variable_value)
+        utils.check_types((
+            f"{variable_type} {variable_type}",
+            "variable         any",
+            "any              variable"
+        ),
+        "Cannot assign a {1} value to a {0}",
+        variable_type, value_type, is_types=True)
+
+        if not variable_object:
+            # Variable doesn't exist yet, create and set it
+            match variable_type:
+                case "number":   initial_value = 0
+                case "string":   initial_value = ""
+                case "boolean":  initial_value = False
+                case "variable": initial_value = ""
+                case "list":     initial_value = []
+
+            variable_object = self.add_variable(variable_name, variable_type, initial_value)
+
+        if variable_object.type == "list":
+            return [ClearList(variable_object),
+                    *(AddToList(item, variable_object) for item in variable_value)]
+        return [SetVariable(variable_object, variable_value)]
 
     # Get either a block or reporter from a variable function or attribute
     # For example, `my_list.length` translates to about `ListLength(my_list)`
