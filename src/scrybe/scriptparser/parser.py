@@ -435,7 +435,7 @@ def p_function_dec(prod):
     warp = prod[1] == "warp"
     is_long = len(prod) == (7 if warp else 6)
 
-    return_type = prod[2] if warp and is_long else prod[1] if is_long else "variable"
+    return_type = prod[2] if warp and is_long else prod[1] if is_long else None
     name        = prod[4] if warp and is_long else prod[3] if is_long or warp else prod[2]
     parameters  = prod[5] if warp and is_long else prod[4] if is_long or warp else prod[3]
     body        = prod[6] if warp and is_long else prod[5] if is_long else prod[4]

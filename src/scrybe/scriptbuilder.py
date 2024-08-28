@@ -121,6 +121,9 @@ class ScriptBuilder:
                 function_name = function["variable"]
                 dict_entry = self.functions[function_name]
 
+                if dict_entry["output"] is None:
+                    code_error("This function has no return type")
+
                 self.argument_error_message(0, dict_entry["parameters"], len(arguments))
                 callable_object = dict_entry["callable"]
                 output_object = dict_entry["output"]
@@ -458,6 +461,9 @@ class ScriptBuilder:
                     if self.functions.get(function.get("variable")):
                         dict_entry = self.functions[function["variable"]]
 
+                        # You may invoke a function with a return type as a statement
+                        # because I don't really see any downsides to it
+
                         callable_object = dict_entry["callable"]
                         parameter_count = dict_entry["parameters"]
 
@@ -597,8 +603,11 @@ class ScriptBuilder:
                 variable_object = self.add_variable(parameter_name, "variable", "")
                 this_script.append(SetVariable(variable_object, parameter_object))
 
-            output_variable_name = f"fo_{function_name}" if self.is_sprite else f"bfo_{function_name}"
-            output_variable = self.projectbuilder.add_variable(output_variable_name, function_type, "", self.target)
+            if function_type is not None:
+                output_variable_name = f"fo_{function_name}" if self.is_sprite else f"bfo_{function_name}"
+                output_variable = self.projectbuilder.add_variable(output_variable_name, function_type, "", self.target)
+            else:
+                output_variable = None
             self.functions[function_name] = {"output": output_variable} # Add to functions dictionary first
                                                                         # so it can be used when returning
             self.current_function_building = function_name
