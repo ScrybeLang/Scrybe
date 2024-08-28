@@ -249,6 +249,13 @@ class ScriptBuilder:
         if not allow_nonexistent:
             code_error("Variable not found")
 
+    def get_control_flow_condition(self, expression):
+        condition = self.translate_expression(expression)
+        utils.check_types(("boolean",),
+            "Condition must be a boolean, not a {}", condition)
+
+        return condition
+
     # Used in both index getters and setters
     def check_index_types(self, target, index):
         utils.check_types(("list", "string", "variable"),
@@ -483,13 +490,13 @@ class ScriptBuilder:
                 current_script.append(callable_object(*arguments))
 
             if statement["type"] == "if":
-                condition = self.translate_boolean(statement["expression"])
+                condition = self.get_control_flow_condition(statement["expression"])
                 body = self.build_inner_statements(statement["body"])
 
                 current_script.append(If(condition, *body))
 
             if statement["type"] == "if-else":
-                condition = self.translate_boolean(statement["expression"])
+                condition = self.get_control_flow_condition(statement["expression"])
                 body_1 = self.build_inner_statements(statement["body 1"])
                 body_2 = self.build_inner_statements(statement["body 2"])
 
@@ -499,12 +506,11 @@ class ScriptBuilder:
                 expression = statement["expression"]
                 body = self.build_inner_statements(statement["body"])
 
-                if not isinstance(expression, dict) and expression:
-                    # If expression is literal and truthy
-                    # (`while (true)` and `while(1 + 2 * 3)` will just run forever)
+                if expression == True:
+                    # Optimize to a "forever" loop if expression is just `true`
                     current_script.append(Forever(*body))
                 else:
-                    condition = self.translate_boolean(expression)
+                    condition = self.get_control_flow_condition(expression)
                     current_script.append(RepeatUntil(Not(condition), *body))
 
             if statement["type"] == "for":
@@ -521,10 +527,8 @@ class ScriptBuilder:
                     [*body, post_iteration_statement],
                     modify_scope = False # Avoid changing the current scope
                 )
-                current_script.append(RepeatUntil(
-                    Not(self.translate_boolean(expression)),
-                    *statements
-                ))
+                expression = self.get_control_flow_condition(expression)
+                current_script.append(RepeatUntil(Not(expression), *statements))
 
                 self.exit_scope()
 
