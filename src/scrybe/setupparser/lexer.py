@@ -1,12 +1,15 @@
 from ply import lex
 from ast import literal_eval
+from ..scriptparser.lexer import (t_COLON, t_SEMICOLON, t_EQUALS,
+                                  t_LPAREN, t_RPAREN, t_LBRACKET, t_RBRACKET, t_COMMA, t_CONCAT,
+                                  t_PLUS, t_MINUS, t_TIMES, t_DIVIDEDBY, t_MODULO, t_EXPONENT,
+                                  t_LESSTHAN, t_GREATERTHAN, t_LESSTHANEQUAL, t_GREATERTHANEQUAL, t_EQUALTO, t_NOTEQUALTO)
 
 tokens = [
-    "VARIABLE", "EQUALS", "COLON", "SEMICOLON",
-    "STRING", "DECIMAL", "INTEGER",
+    "VARIABLE", "COLON", "SEMICOLON", "EQUALS", "STRING", "DECIMAL", "INTEGER",
+    "LPAREN", "RPAREN", "LBRACKET", "RBRACKET", "COMMA", "CONCAT",
     "PLUS", "MINUS", "TIMES", "DIVIDEDBY", "MODULO", "EXPONENT", "UMINUS",
     "LESSTHAN", "GREATERTHAN", "LESSTHANEQUAL", "GREATERTHANEQUAL", "EQUALTO", "NOTEQUALTO",
-    "LBRACKET", "RBRACKET", "LPAREN", "RPAREN", "COMMA",
     "NEWLINE", "COMMENT"
 ]
 
@@ -15,6 +18,7 @@ reserved = {
     "as":      "FILENAMEDEC",
     "and":     "AND",
     "or":      "OR",
+    "in":      "IN",
     "true":    "TRUE",
     "false":   "FALSE",
     "num":     "NUMTYPE",

@@ -1,6 +1,7 @@
 # Testing
 project/
-project.sb3
+*.sb3
+*.json
 
 # PLY
 *.out

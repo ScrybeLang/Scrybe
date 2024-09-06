@@ -3,6 +3,9 @@ from .lexer import lexer, tokens
 from .. import filestate
 from .. import utils
 from ..logger import code_error, set_lexpos
+from ..scriptparser.parser import (p_number, p_boolean, p_list, p_expression_list,
+                                   p_single_type, p_type_declaration,
+                                   p_numerical_binop, p_logical_binop, p_concatenation)
 
 precedence = (
     ("left", "OR"),
@@ -16,9 +19,9 @@ precedence = (
 )
 
 def p_program(prod):
-    """program : file_declaration variable_list
+    """program : file_declaration variable_declarations
                | file_declaration
-               | variable_list
+               | variable_declarations
                | """
     if len(prod) == 3:
         file_declaration = prod[1]
@@ -27,7 +30,7 @@ def p_program(prod):
         if prod.slice[1].type == "file_declaration":
             file_declaration = prod[1]
             variables = []
-        elif prod.slice[1].type == "variable_list":
+        elif prod.slice[1].type == "variable_declarations":
             file_declaration = {}
             variables = prod[1]
     else:
@@ -51,113 +54,57 @@ def p_file_declaration(prod):
         "filename":     filename
     }
 
-def p_variable_list(prod):
-    """variable_list : set_variable variable_list
-                     | set_variable"""
+def p_variable_declarations(prod):
+    """variable_declarations : set_variable variable_declarations
+                             | set_variable"""
     if len(prod) == 3:
         prod[0] = [prod[1]] + prod[2]
     else:
         prod[0] = [prod[1]]
 
-def p_type_declaration(prod):
-    """type_declaration : COLON NUMTYPE
-                        | COLON STRTYPE
-                        | COLON BOOLTYPE
-                        | COLON VARTYPE
-                        | """
-    if len(prod) == 3:
-        match prod[2]:
-            case "num":  prod[0] = "number"
-            case "str":  prod[0] = "string"
-            case "bool": prod[0] = "boolean"
-            case "var":  prod[0] = "variable"
-    else:
-        prod[0] = "variable"
-
-def p_set_variable(prod):
-    """set_variable : VARIABLE type_declaration EQUALS expression SEMICOLON"""
+def p_variable(prod):
+    """variable : VARIABLE"""
     prod[0] = {
-        "name":  prod[1],
-        "type":  prod[2],
-        "value": prod[4]
+        "lexpos":  prod.lexpos(1),
+        "type":    "variable",
+        "variable": prod[1]
     }
 
-def p_number(prod):
-    """number : DECIMAL
-              | INTEGER"""
-    prod[0] = prod[1]
-
 def p_expression(prod):
-    """expression : expression PLUS expression
-                  | expression MINUS expression
-                  | expression TIMES expression
-                  | expression DIVIDEDBY expression
-                  | expression MODULO expression
-                  | expression EXPONENT expression
+    """expression : numerical_binop
                   | MINUS expression %prec UMINUS
                   | LPAREN expression RPAREN
+                  | variable
                   | STRING
                   | number
-                  | condition
-                  | list"""
+                  | logical_binop
+                  | boolean
+                  | concatenation"""
     if len(prod) == 2:
         prod[0] = prod[1]
     elif len(prod) == 3:
         # Unary minus
-        prod[0] = -float(prod[2])
-    else:
-        if prod[1] == "(" and prod[3] == ")":
-            # Expression WRAPPED in parentheses
-            prod[0] = prod[2]
+        if utils.is_number(prod[2]):
+            prod[0] = -prod[2]
         else:
-            # Binary operation
-            prod[0] = utils.evaluate_expression({
-                "type":     "binary operation",
-                "operation": prod[2],
-                "operand 1": prod[1],
-                "operand 2": prod[3]
-            })
-
-def p_condition(prod):
-    """condition : expression LESSTHAN expression
-                 | expression GREATERTHAN expression
-                 | expression LESSTHANEQUAL expression
-                 | expression GREATERTHANEQUAL expression
-                 | expression EQUALTO expression
-                 | expression NOTEQUALTO expression
-                 | expression AND expression
-                 | expression OR expression
-                 | boolean"""
-    if isinstance(prod[1], bool):
-        prod[0] = prod[1]
-    else:
-        prod[0] = utils.evaluate_expression({
-            "type":     "binary operation",
-            "operation": prod[2],
-            "operand 1": prod[1],
-            "operand 2": prod[3]
-        })
-
-def p_boolean(prod):
-    """boolean : TRUE
-               | FALSE"""
-    prod[0] = prod[1] == "true"
-
-def p_list(prod):
-    """list : LBRACKET expression_list RBRACKET
-            | LBRACKET RBRACKET"""
-    if len(prod) == 4:
+            prod[0] = {
+                "lexpos":     prod[2]["lexpos"] if isinstance(prod[2], dict) else parser.symstack[-1].lexpos + 2,
+                "type":       "unary minus",
+                "expression": prod[2]
+            }
+    elif prod[1] == "(" and prod[3] == ")":
+        # Expression wrapped in parentheses
         prod[0] = prod[2]
-    else:
-        prod[0] = []
 
-def p_expression_list(prod):
-    """expression_list : expression
-                       | expression_list COMMA expression"""
-    if len(prod) == 2:
-        prod[0] = [prod[1]]
-    else:
-        prod[0] = prod[1] + [prod[3]]
+def p_set_variable(prod):
+    """set_variable : VARIABLE type_declaration EQUALS expression SEMICOLON
+                    | VARIABLE type_declaration EQUALS list SEMICOLON"""
+    prod[0] = {
+        "lexpos": prod.lexpos(1),
+        "name":   prod[1],
+        "type":   prod[2],
+        "value":  prod[4]
+    }
 
 def p_error(token):
     stack = [sym.type for sym in parser.symstack[1:]]

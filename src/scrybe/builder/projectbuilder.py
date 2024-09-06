@@ -1,9 +1,9 @@
 from ScratchGen import Project
 from ScratchGen.constants import *
+from .setupbuilder import SetupBuilder
 from .scriptbuilder import ScriptBuilder
-from .logger import debug, warn, code_error, set_lexpos
-from . import filestate
-from . import utils
+from ..logger import debug, warn, code_error, set_lexpos
+from .. import filestate
 import glob
 import os
 
@@ -59,20 +59,10 @@ class ProjectBuilder:
 
     def apply_setup(self, setup_ast):
         file_declaration = setup_ast["file declaration"] or {}
-        current_folder = os.path.basename(os.getcwd())
-        self.filename = file_declaration.get("filename", current_folder + ".sb3")
+        self.filename = file_declaration.get("filename",
+            os.path.basename(os.getcwd()) + ".sb3")
 
-        # Add global variables
-        for variable in setup_ast["variables"]:
-            variable_name = variable["name"]
-            variable_value = variable["value"]
-
-            variable_type = variable["type"]
-            given_type = utils.get_type(variable_value)
-            if variable_type != given_type and variable_type != "variable":
-                code_error(f"Value must be a {variable_type}, not a {given_type}")
-
-            self.add_variable(f"g_{variable_name}", variable_type, variable_value)
+        SetupBuilder(self, setup_ast["variables"]).build()
 
     # `variable_name` should already be scope formatted
     def add_variable(self, variable_name, variable_type, variable_value, target=None):
@@ -97,7 +87,7 @@ class ProjectBuilder:
     def get_broadcast(self, broadcast_name):
         if broadcast_name not in self.broadcasts:
             broadcast_object = self.project.createBroadcast(broadcast_name)
-            variable_object = self.add_variable(f"br_{broadcast_name}", "")["object"]
+            variable_object = self.add_variable(f"br_{broadcast_name}", "variable", "")
 
             self.broadcasts[broadcast_name] = {
                 "broadcast": broadcast_object,

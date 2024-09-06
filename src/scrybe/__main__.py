@@ -1,6 +1,6 @@
 from .setupparser import parse_file as parse_setup
 from .scriptparser import parse_file as parse_script
-from .projectbuilder import ProjectBuilder
+from .builder import ProjectBuilder
 from .logger import log_prefixes, logger, debug, info, warn, error
 from . import filestate
 import os

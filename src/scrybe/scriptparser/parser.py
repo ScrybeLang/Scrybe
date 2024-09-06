@@ -207,13 +207,41 @@ def p_concatenation(prod):
         "operand 2": prod[3]
     }
 
+def p_numerical_binop(prod):
+    """numerical_binop : expression PLUS expression
+                       | expression MINUS expression
+                       | expression TIMES expression
+                       | expression DIVIDEDBY expression
+                       | expression MODULO expression
+                       | expression EXPONENT expression"""
+    prod[0] = {
+        "lexpos":    prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2),
+        "type":      "binary operation",
+        "operation": prod[2],
+        "operand 1": prod[1],
+        "operand 2": prod[3]
+    }
+
+def p_logical_binop(prod):
+    """logical_binop : expression LESSTHAN expression
+                     | expression GREATERTHAN expression
+                     | expression LESSTHANEQUAL expression
+                     | expression GREATERTHANEQUAL expression
+                     | expression EQUALTO expression
+                     | expression NOTEQUALTO expression
+                     | expression AND expression
+                     | expression OR expression
+                     | expression IN expression"""
+    prod[0] = {
+        "lexpos":      prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2),
+        "type":        "condition",
+        "condition":   prod[2],
+        "comparand 1": prod[1],
+        "comparand 2": prod[3]
+    }
+
 def p_expression(prod):
-    """expression : expression PLUS expression
-                  | expression MINUS expression
-                  | expression TIMES expression
-                  | expression DIVIDEDBY expression
-                  | expression MODULO expression
-                  | expression EXPONENT expression
+    """expression : numerical_binop
                   | MINUS expression %prec UMINUS
                   | LPAREN expression RPAREN
                   | function_call
@@ -229,25 +257,16 @@ def p_expression(prod):
         # Unary minus
         if utils.is_number(prod[2]):
             # Unary minus on a number is just negation ._.
-            prod[0] = -float(prod[2])
+            prod[0] = -prod[2]
         else:
             prod[0] = {                                                         # ↓ Position of expression
                 "lexpos":     prod[2]["lexpos"] if isinstance(prod[2], dict) else parser.symstack[-1].lexpos + 2,
                 "type":       "unary minus",
                 "expression": prod[2]
             }
-    else:
-        if prod[1] == "(" and prod[3] == ")":
-            # Expression wrapped in parentheses
-            prod[0] = prod[2]
-        else:
-            prod[0] = {
-                "lexpos":    prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2),
-                "type":      "binary operation",
-                "operation": prod[2],
-                "operand 1": prod[1],
-                "operand 2": prod[3]
-            }
+    elif prod[1] == "(" and prod[3] == ")":
+        # Expression wrapped in parentheses
+        prod[0] = prod[2]
 
 def p_in_place_assignment(prod):
     """in_place_assignment : variable PLUSASSIGN expression
@@ -308,26 +327,10 @@ def p_function_call(prod):
     }
 
 def p_condition(prod):
-    """condition : expression LESSTHAN expression
-                 | expression GREATERTHAN expression
-                 | expression LESSTHANEQUAL expression
-                 | expression GREATERTHANEQUAL expression
-                 | expression EQUALTO expression
-                 | expression NOTEQUALTO expression
-                 | expression AND expression
-                 | expression OR expression
-                 | expression IN expression
+    """condition : logical_binop
                  | NOT expression
                  | boolean"""
-    if len(prod) == 4:
-        prod[0] = {
-            "lexpos":      prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2),
-            "type":        "condition",
-            "condition":   prod[2],
-            "comparand 1": prod[1],
-            "comparand 2": prod[3]
-        }
-    elif len(prod) == 3:
+    if len(prod) == 3:
         prod[0] = {
             "lexpos":    prod[2]["lexpos"] if isinstance(prod[2], dict) else prod.lexpos(1),
             "type":      "condition",
