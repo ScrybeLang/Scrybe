@@ -33,16 +33,7 @@ class ScriptBuilder(CodeBuilder):
         self.current_script = None # Reference to the current script stack
         self.scripts = [] # 2D list of block objects
 
-        if self.is_sprite:
-            self.is_clone_variable = self.target.createVariable("sg_is_clone", "false")
-
-            self.scripts.extend([[
-                WhenFlagClicked(),
-                SetVariable(self.is_clone_variable, "false")
-            ], [
-                WhenStartAsClone(),
-                SetVariable(self.is_clone_variable, "true")
-            ]])
+        self.is_clone_variable = None
 
     # Non-boolean expression translation
 
@@ -91,8 +82,8 @@ class ScriptBuilder(CodeBuilder):
             return self.translate_variable_attribute(expression, "field")
 
         if expression["object"] == "this" and expression["attribute"] == "is_clone":
-            if not self.is_sprite:
-                code_error("This attribute can only be used in a sprite")
+            if not self.is_sprite: code_error("This attribute can only be used in a sprite")
+            if not self.is_clone_variable: self.add_is_sprite_check()
             return self.is_clone_variable
 
         return self.get_builtin(
@@ -239,6 +230,17 @@ class ScriptBuilder(CodeBuilder):
         # Variable wasn't found, either error or implicitly return None
         if not allow_nonexistent:
             code_error("Variable not found")
+
+    def add_is_sprite_check(self):
+        self.is_clone_variable = self.target.createVariable("sg_is_clone", 0)
+
+        self.scripts.extend([[
+            WhenFlagClicked(),
+            SetVariable(self.is_clone_variable, 0)
+        ], [
+            WhenStartAsClone(),
+            SetVariable(self.is_clone_variable, 1)
+        ]])
 
     # Inner statement translation
 
