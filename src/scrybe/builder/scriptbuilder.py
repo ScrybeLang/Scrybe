@@ -243,13 +243,9 @@ class ScriptBuilder(CodeBuilder):
     # Inner statement translation
 
     def build_inner_statements(self, statements, modify_scope=True):
-        if modify_scope: self.enter_scope()
+        self.add_to_stack(modify_scope)
 
-        new_script = []
-        self.script_stack.append(new_script)
-        self.current_script = new_script
-
-        for i, statement in enumerate(statements):
+        for statement in statements:
             set_lexpos(statement["lexpos"])
 
             match statement["type"]:
@@ -265,12 +261,7 @@ class ScriptBuilder(CodeBuilder):
 
             application_function(statement)
 
-        if modify_scope: self.exit_scope()
-
-        result = self.script_stack.pop()
-        self.current_script = self.script_stack[-1] if self.script_stack else None
-
-        return result
+        return self.remove_from_stack(modify_scope)
 
     def apply_variable_setter(self, statement):
         to_assign = statement["variable"]
@@ -640,12 +631,20 @@ class ScriptBuilder(CodeBuilder):
         for script in self.scripts:
             self.target.createScript(*script)
 
-    def add_to_stack(self):
-        self.script_stack.append([])
-        return self.script_stack[-1]
+    def add_to_stack(self, modify_scope):
+        if modify_scope: self.enter_scope()
 
-    def remove_from_stack(self):
-        return self.script_stack.pop(-1)
+        new_script = []
+        self.script_stack.append(new_script)
+        self.current_script = new_script
+
+    def remove_from_stack(self, modify_scope):
+        if modify_scope: self.exit_scope()
+
+        result = self.script_stack.pop()
+        self.current_script = self.script_stack[-1] if self.script_stack else None
+
+        return result
 
     def enter_scope(self):
         self._scope_ID += 1
