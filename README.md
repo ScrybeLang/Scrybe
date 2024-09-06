@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > Read the [documentation](https://scrybelang.github.io/)!
 
-Scrybe is a text-based langage implemented in Python that compiles into a Scratch project. This project is based on [PLY](https://pypi.org/project/ply/) and [ScratchGen](https://pypi.org/project/ScratchGen/), and was inspired by [goboscript](https://github.com/aspizu/goboscript).
+[Scrybe](https://github.com/ScrybeLang/Scrybe) is a text-based language implemented in Python that ~~transpiles~~ compiles into a Scratch project. This project is based on [PLY](https://pypi.org/project/ply/) and [ScratchGen](https://pypi.org/project/ScratchGen/), and was inspired by [goboscript](https://github.com/aspizu/goboscript).
 
 Much like goboscript, Scrybe allows you to create Scratch projects with a text editor or IDE instead of manually dragging and dropping blocks together. This comes with the benefits of easier version control, code being easier to debug (Scrybe has error messages), and being familiar to programmers who are used to text-based coding.
 
