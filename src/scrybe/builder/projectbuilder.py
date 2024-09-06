@@ -139,21 +139,22 @@ class ProjectBuilder:
     # This would be a constant top-level tuple but "filename" has to be set each time
     def generate_declaration_info(self, filename):
         # Info: (
-        #     (<declaration name>, <default value>, <sprite-specific>),
+        #     (<declaration name>, <default value>, <sprite-specific>, <check function>),
         #     ...
         # )
+        nonspecific = lambda *args: True # Always returns True when called due to filtering by parser rules
         return (
-            ("name",          filename[:-4], True),
-            ("costume",       [],            False),
-            ("sound",         [],            False),
-            ("visible",       True,          True),
-            ("x",             0,             True),
-            ("y",             0,             True),
-            ("size",          100,           True),
-            ("direction",     90,            True),
-            ("draggable",     True,          True),
-            ("rotationstyle", ALL_AROUND,    True),
-            ("layer",         1,             True)
+            ("name",          filename[:-4], True,  nonspecific),
+            ("costume",       [],            False, nonspecific),
+            ("sound",         [],            False, nonspecific),
+            ("visible",       True,          True,  nonspecific),
+            ("x",             0,             True,  nonspecific),
+            ("y",             0,             True,  nonspecific),
+            ("size",          100,           True,  lambda x: 0 <= x <= 100),
+            ("direction",     90,            True,  nonspecific),
+            ("draggable",     True,          True,  nonspecific),
+            ("rotationstyle", ALL_AROUND,    True,  nonspecific),
+            ("layer",         1,             True,  lambda x: isinstance(x, int) and x > 0)
         )
 
     # Get declarations as a dictionary
@@ -166,22 +167,27 @@ class ProjectBuilder:
 
         # Cut off the third element of each item (the sprite-specific tag)
         # to get a dictionary with default values
-        declarations = dict([item[:-1] for item in declaration_info])
+        declarations = dict([item[:2] for item in declaration_info])
         defined_declarations = []
 
-        for declaration_name, _, sprite_specific in declaration_info:
+        for declaration_name, _, sprite_specific, check_function in declaration_info:
             for declaration in declaration_statements:
                 set_lexpos(declaration["lexpos"])
+                declaration_value = declaration["value"]
 
-                if declaration["property"] == f"#{declaration_name}":
-                    if sprite_specific and is_stage:
-                        code_error("This declaration can only be used in a sprite")
+                if declaration["property"] != f"#{declaration_name}": continue
 
-                    if declaration_name in defined_declarations:
-                        code_error("Redefined declaration")
+                if sprite_specific and is_stage:
+                    code_error("This declaration can only be used in a sprite")
 
-                    declarations[declaration_name] = declaration["value"]
-                    defined_declarations.append(declaration_name)
+                if declaration_name in defined_declarations:
+                    code_error("Redefined declaration")
+
+                if not check_function(declaration_value):
+                    code_error("Invalid declaration value asdasdasd")
+
+                declarations[declaration_name] = declaration_value
+                defined_declarations.append(declaration_name)
 
         return declarations
 
