@@ -3,6 +3,7 @@ from ScratchGen import constants
 from ScratchGen.datacontainer import List
 from .utils import get_type, check_types, literal_operations, copy_and_apply_type
 from .logger import code_error
+from copy import deepcopy
 
 # Get the amount of objects this object represents
 # For example: "Equals(Add(2, 2), 4)" => 2
@@ -175,13 +176,17 @@ def _convert_type(object, new_type):
         "any  any",
         "list string"
     ),
-    "Cannot convert a {} to a {}", object_type, new_type)
+    "Cannot convert a {} to a {}", object_type, new_type, is_types=True)
 
-    if hasattr(object, "type"):
-        return copy_and_apply_type(object, new_type)
+    if isinstance(object, Block):
+        if new_type == "number": return Add(object, 0)
+        if new_type == "string": return copy_and_apply_type(object, "string")
 
-    try:    return {"number": int, "string": str}[new_type](object)
-    except: code_error(f"Cannot convert {repr(object)} to a {new_type}")
+    try:
+        base = {"0b": 2, "0o": 8, "0x": 16}.get(str(object)[:2].lower(), 10)
+        return {"number": lambda x: int(x, base), "string": str}[new_type](object)
+    except:
+        code_error(f"Cannot convert {repr(object)} to a {new_type}")
 
 function_reporters = {
     "scratch": {
