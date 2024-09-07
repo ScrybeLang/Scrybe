@@ -1,4 +1,5 @@
 from ScratchGen.blocks import *
+from ScratchGen.datacontainer import DataContainer
 from ScratchGen import constants
 from ScratchGen.datacontainer import List
 from .utils import get_type, check_types, literal_operations, copy_and_apply_type
@@ -178,7 +179,7 @@ def _convert_type(object, new_type):
     ),
     "Cannot convert a {} to a {}", object_type, new_type, is_types=True)
 
-    if isinstance(object, Block):
+    if isinstance(object, (Block, DataContainer)):
         if new_type == "number": return Add(object, 0)
         if new_type == "string": return copy_and_apply_type(object, "string")
 
