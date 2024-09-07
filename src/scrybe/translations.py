@@ -4,7 +4,6 @@ from ScratchGen import constants
 from ScratchGen.datacontainer import List
 from .utils import get_type, check_types, literal_operations, copy_and_apply_type
 from .logger import code_error
-from copy import deepcopy
 
 # Get the amount of objects this object represents
 # For example: "Equals(Add(2, 2), 4)" => 2
