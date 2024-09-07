@@ -479,7 +479,7 @@ class ScriptBuilder(CodeBuilder):
         if self.current_function_building:
             # Returning from a function
             return_expression = statement["expression"]
-            if return_expression:
+            if return_expression is not None:
                 function_output_variable = self.functions[self.current_function_building]["output"]
                 return_expression = self.translate_expression(return_expression)
 
