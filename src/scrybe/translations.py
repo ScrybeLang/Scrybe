@@ -45,7 +45,8 @@ def _exponent_function(base, exponent):
             return _chain_multiply(base, exponent)
 
     # The first tricky math part; this only works with positive bases but any exponent works
-    exponent_part = Operation(TEN_TO_THE, Multiply(exponent, Operation(LOGARITHM, Operation(ABSOLUTE, base))))
+    base = abs(base) if base_numeric else Operation(ABSOLUTE, base)
+    exponent_part = Operation(E_TO_THE, Multiply(Operation(NATURAL_LOGARITHM, base), exponent))
 
     if base_numeric and base >= 0: # If the base is a positive literal number
         return exponent_part
