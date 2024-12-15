@@ -1,5 +1,7 @@
 # `Scrybe`, the Other Scratch Compiler
 
+* Made by [aespibr](https://scratch.mit.edu/users/aespibr/) on Scratch
+
 > [!IMPORTANT]
 > Read the [documentation](https://scrybelang.github.io/)!
 
