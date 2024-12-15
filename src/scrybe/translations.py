@@ -99,7 +99,8 @@ operations = {
     ">":   _make_lambda(literal_operations[">"],  number_conditions[">"]),
     "<=":  _make_lambda(literal_operations["<="], number_conditions["<="]),
     ">=":  _make_lambda(literal_operations[">="], number_conditions[">="]),
-    "==":  _make_lambda(literal_operations["=="], number_conditions["=="])
+    "==":  _make_lambda(literal_operations["=="], number_conditions["=="]),
+    "!=":  _make_lambda(literal_operations["!="], number_conditions["!="])
 }
 
 reporters = {

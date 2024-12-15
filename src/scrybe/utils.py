@@ -15,7 +15,8 @@ literal_operations = {
     ">":   operator.gt,
     "<=":  operator.le,
     ">=":  operator.ge,
-    "==":  operator.eq
+    "==":  operator.eq,
+    "!=":  operator.ne
 }
 
 # Helper function to create a rule-abiding Windows file name
