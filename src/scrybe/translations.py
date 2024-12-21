@@ -2,17 +2,8 @@ from ScratchGen.blocks import *
 from ScratchGen.datacontainer import DataContainer
 from ScratchGen import constants
 from ScratchGen.datacontainer import List
-from .utils import get_type, check_types, literal_operations, copy_and_apply_type
 from .logger import code_error
-
-# Get the amount of objects this object represents
-# For example: "Equals(Add(2, 2), 4)" => 2
-#              "Divide(2, 3)"         => 1
-#              "15"                   => 1
-def get_depth(object):
-    if isinstance(object, (int, float)) or not object.contained_blocks:
-        return 1
-    return sum(map(get_depth, object.contained_blocks)) + 1
+import utils
 
 def _chain_multiply(base, exponent):
     if exponent == 2:
@@ -39,7 +30,7 @@ def _exponent_function(base, exponent):
 
     # For cases when it would take less blocks just to multiply it manually
     if isinstance(exponent, int):
-        base_depth = get_depth(base)
+        base_depth = utils.get_depth(base)
         chained_object_depth = base_depth * (exponent - 1) # Depth of resulting chained object
         if 0 < chained_object_depth < 13: # Full exponentiation has a depth of 13 objects
             return _chain_multiply(base, exponent)
@@ -60,8 +51,7 @@ def _exponent_function(base, exponent):
 
 def _contains(sub_item, item):
     if isinstance(item, List):
-        return copy_and_apply_type(ListContains(item, sub_item),
-                                   "variable")
+        return utils.copy_and_apply_type(ListContains(item, sub_item), "variable")
     return Contains(item, sub_item)
 
 boolean_conditions = {
@@ -89,18 +79,18 @@ def _make_lambda(original_function, scratchgen_function):
     )
 
 operations = {
-    "+":   _make_lambda(literal_operations["+"],  Add),
-    "-":   _make_lambda(literal_operations["-"],  Subtract),
-    "*":   _make_lambda(literal_operations["*"],  Multiply),
-    "/":   _make_lambda(literal_operations["/"],  Divide),
-    "%":   _make_lambda(literal_operations["%"],  Modulo),
+    "+":   _make_lambda(utils.literal_operations["+"],  Add),
+    "-":   _make_lambda(utils.literal_operations["-"],  Subtract),
+    "*":   _make_lambda(utils.literal_operations["*"],  Multiply),
+    "/":   _make_lambda(utils.literal_operations["/"],  Divide),
+    "%":   _make_lambda(utils.literal_operations["%"],  Modulo),
     "**":  _exponent_function,
-    "<":   _make_lambda(literal_operations["<"],  number_conditions["<"]),
-    ">":   _make_lambda(literal_operations[">"],  number_conditions[">"]),
-    "<=":  _make_lambda(literal_operations["<="], number_conditions["<="]),
-    ">=":  _make_lambda(literal_operations[">="], number_conditions[">="]),
-    "==":  _make_lambda(literal_operations["=="], number_conditions["=="]),
-    "!=":  _make_lambda(literal_operations["!="], number_conditions["!="])
+    "<":   _make_lambda(utils.literal_operations["<"],  number_conditions["<"]),
+    ">":   _make_lambda(utils.literal_operations[">"],  number_conditions[">"]),
+    "<=":  _make_lambda(utils.literal_operations["<="], number_conditions["<="]),
+    ">=":  _make_lambda(utils.literal_operations[">="], number_conditions[">="]),
+    "==":  _make_lambda(utils.literal_operations["=="], number_conditions["=="]),
+    "!=":  _make_lambda(utils.literal_operations["!="], number_conditions["!="])
 }
 
 reporters = {
@@ -167,14 +157,13 @@ for constant in (
 
 def _random_choice(item):
     if isinstance(item, List):
-        return copy_and_apply_type(ItemOfList(PickRandom(1, ListLength(item)), item),
-                                   "variable")
+        return utils.copy_and_apply_type(ItemOfList(PickRandom(1, ListLength(item)), item), "variable")
     return LetterOf(PickRandom(1, LengthOf(item)), item)
 
 def _convert_type(object, new_type):
-    object_type = get_type(object)
+    object_type = utils.get_type(object)
 
-    check_types((
+    utils.check_types((
         "any  any",
         "list string"
     ),
@@ -182,7 +171,7 @@ def _convert_type(object, new_type):
 
     if isinstance(object, (Block, DataContainer)):
         if new_type == "number": return Add(object, 0)
-        if new_type == "string": return copy_and_apply_type(object, "string")
+        if new_type == "string": return utils.copy_and_apply_type(object, "string")
 
     try:
         base = {"0b": 2, "0o": 8, "0x": 16}.get(str(object)[:2].lower(), 10)

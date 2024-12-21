@@ -29,6 +29,15 @@ def to_filename(string):
         return filtered_chars[:-1]
     return filtered_chars
 
+# Get the amount of objects this object represents
+# For example: "Equals(Add(2, 2), 4)" => 2
+#              "Divide(2, 3)"         => 1
+#              "15"                   => 1
+def get_depth(object):
+    if isinstance(object, (int, float)) or not object.contained_blocks:
+        return 1
+    return sum(map(get_depth, object.contained_blocks)) + 1
+
 # Begging forgiveness 🥺
 def is_number(string):
     try:
