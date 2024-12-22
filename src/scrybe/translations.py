@@ -3,7 +3,7 @@ from ScratchGen.datacontainer import DataContainer
 from ScratchGen import constants
 from ScratchGen.datacontainer import List
 from .logger import code_error
-import utils
+from . import utils
 
 def _chain_multiply(base, exponent):
     if exponent == 2:
