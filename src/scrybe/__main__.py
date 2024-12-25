@@ -5,72 +5,30 @@ from .logger import log_prefixes, logger, debug, info, warn, error
 from . import filestate
 import os
 import glob
-import sys
+import argparse
 
 def get_arguments():
-    provided_arguments = sys.argv[1:]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("path", help="Relative path to the project directory")
+    parser.add_argument("filename", nargs="?", help="Name of the output file with .sb3 extension")
+    parser.add_argument("-log", choices=log_prefixes.keys(), default="info", help="Logging level")
+    parser.add_argument("-nocolor", action="store_false", dest="color", help="Disable colored output")
+    parser.add_argument("-open", action="store_true", help="Open the output file after building")
 
-    if not provided_arguments:
-        error("No arguments provided", exit=True)
+    args = parser.parse_args()
 
-    # Get project directory (always the first argument)
-    provided_path = provided_arguments[0]
-    if not os.path.exists(provided_path):
-        error(f'The provided path ("{provided_path}") does not exist', exit=True)
-    provided_arguments = provided_arguments[1:]
+    if not os.path.exists(args.path):
+        error(f'The provided path ("{args.path}") does not exist', exit=True)
 
-    # Set defaults
-    output_filename = None
-    log_level       = "info"
-    color           = True
-    open_after      = False
-
-    # While-based loop so we can skip argument values
-    i = 0
-    while i < len(provided_arguments):
-        string = provided_arguments[i]
-        if string[0] == '"' and string[-1] == '"':
-            string = string[1:-1]
-
-        if string.endswith(".sb3"):
-            output_filename = string
-
-        elif string == "-log":
-            if i == len(provided_arguments) - 1:
-                error("Missing log level", exit=True)
-            if provided_arguments[i + 1] not in log_prefixes:
-                valid_arguments = ", ".join(log_prefixes.keys())
-                error(f"Invalid log level, must be one of {valid_arguments}", exit=True)
-
-            i += 1
-            log_level = provided_arguments[i]
-
-        elif string == "-nocolor":
-            color = False
-
-        elif string == "-open":
-            open_after = True
-
-        else:
-            error(f'Unknown argument - "{string}"', exit=True)
-
-        i += 1
-
-    return {
-        "project path":    provided_path,
-        "output filename": output_filename,
-        "log level":       log_level,
-        "color":           color,
-        "open after":      open_after
-    }
+    return args
 
 def main():
     arguments = get_arguments()
-    project_path    = arguments["project path"]
-    output_filename = arguments["output filename"]
-    log_level       = arguments["log level"]
-    color           = arguments["color"]
-    open_after      = arguments["open after"]
+    project_path    = arguments.path
+    output_filename = arguments.filename
+    log_level       = arguments.log
+    color           = arguments.color
+    open_after      = arguments.open
 
     logger.log_level = log_level
     logger.color     = color
