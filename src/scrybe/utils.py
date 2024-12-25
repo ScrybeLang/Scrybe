@@ -1,5 +1,4 @@
 from ply.yacc import PlyLogger
-from copy import deepcopy
 from .logger import code_error
 import operator
 
@@ -47,10 +46,8 @@ def is_number(string):
         return False
 
 def set_type(object, type):
-    copy = deepcopy(object)
-    copy.type = type
-
-    return copy
+    object.type = type
+    return object
 
 # Prevent PLY warning/error logs from showing (so smart!)
 class _NullBuffer:
