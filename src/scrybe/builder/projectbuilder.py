@@ -3,6 +3,7 @@ from ScratchGen.constants import *
 from .setupbuilder import SetupBuilder
 from .scriptbuilder import ScriptBuilder
 from ..logger import debug, warn, code_error, set_lexpos
+from ..types import Types
 from .. import filestate
 import glob
 import os
@@ -68,9 +69,10 @@ class ProjectBuilder:
     def add_variable(self, variable_name, variable_type, variable_value, target=None):
         target = target or self.project.stage
 
-        function = target.createList if variable_type == "list" else target.createVariable
+        function = target.createList if variable_type == Types.LIST else target.createVariable
         variable_object = function(variable_name, variable_value)
         variable_object.type = variable_type
+        variable_type = repr(variable_type)
 
         if variable_name.startswith("g_") or variable_name.startswith("br_"):
             self.variables["global"][variable_name] = variable_object

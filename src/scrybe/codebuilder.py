@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from ScratchGen.blocks import *
+from .types import Types
 from . import translations
 from . import utils
 
@@ -37,33 +38,33 @@ class CodeBuilder(ABC):
         operand_1 = self.translate_expression(expression["operand 1"])
         operand_2 = self.translate_expression(expression["operand 2"])
 
-        utils.check_types((
-            "number|variable number|variable",),
-            "Cannot perform numerical operation on a {} and a {}",
-            operand_1, operand_2
+        Types.check_types(
+            [[Types.NUMBER, Types.NUMBER]],
+            [operand_1, operand_2],
+            "Cannot perform numerical operation on a {} and a {}"
         )
 
         return operation(operand_1, operand_2)
 
     def translate_unary_minus(self, expression):
-        expression = self.translate_expression(expression["expression"]) # Expression
+        number = self.translate_expression(expression["expression"])
 
-        utils.check_types((
-            "number", "variable"),
-            "Cannot negate a {}", expression)
-
-        return expression * -1
+        Types.check_types([[Types.NUMBER]], [number], "Cannot negate a {}")
+        return number * -1
 
     def translate_numerical_logic_operation(self, condition, comparand_1, comparand_2):
         comparand_1 = self.translate_expression(comparand_1)
         comparand_2 = self.translate_expression(comparand_2)
 
-        possibilities = ["number|variable number|variable"]
-        if condition in ("==", "!="):
-            possibilities += ["string|variable string|variable"]
+        possible_types = [[Types.NUMBER, Types.NUMBER]]
+        if condition in ("==", "!="):  # (In)equality operators can also work with strings
+            possible_types += [[Types.STRING, Types.STRING]]
 
-        utils.check_types(possibilities, "Cannot compare a {} to a {}",
-                            comparand_1, comparand_2)
+        Types.check_types(
+            possible_types,
+            [comparand_1, comparand_2],
+            "Cannot compare a {} to a {}"
+        )
 
         return translations.operations[condition](comparand_1, comparand_2)
 
@@ -76,8 +77,11 @@ class CodeBuilder(ABC):
         operand_2 = function(comparand_2)
 
         if is_in:
-            utils.check_types(("string", "variable", "list"),
-                "{} is not a container", operand_2)
+            Types.check_types(
+                [[Types.LIST], [Types.STRING]],
+                [operand_2],
+                "{} is not a container"
+            )
 
         return translations.boolean_conditions[condition](operand_1, operand_2)
 
@@ -90,17 +94,18 @@ class CodeBuilder(ABC):
         return function(condition, comparand_1, comparand_2)
 
     def translate_concatenation(self, expression):
-        string_1 = self.translate_expression(expression["operand 1"])
-        string_2 = self.translate_expression(expression["operand 2"])
+        operand_1 = self.translate_expression(expression["operand 1"])
+        operand_2 = self.translate_expression(expression["operand 2"])
 
-        utils.check_types((
-            "string|variable string|variable"),
-            "Cannot concatenate a {} to a {}", string_1, string_2)
+        Types.check_types(
+            [[Types.STRING, Types.STRING]],
+            [operand_1, operand_2],
+            "Cannot concatenate a {} to a {}"
+        )
 
-        if isinstance(string_1, str) and isinstance(string_2, str):
-            return string_1 + string_2
-
-        return Join(string_1, string_2)
+        if isinstance(operand_1, str) and isinstance(operand_1, str):
+            return operand_1 + operand_2
+        return Join(operand_1, operand_2)
 
     def translate_index(self, expression):
         target = self.translate_expression(expression["target"])
@@ -109,22 +114,20 @@ class CodeBuilder(ABC):
         self._check_index_types(target, index)
         index += 1
 
-        if utils.get_type(target) == "list":
-            return utils.copy_and_apply_type(ItemOfList(index, target), "variable")
+        if Types.get_type(target) == Types.LIST:
+            return utils.set_type(ItemOfList(index, target), Types.GENERAL)
         return LetterOf(index, target)
 
     def _check_index_types(self, target, index):
-        utils.check_types(("list", "string", "variable"),
-            "Index target must be a string or a list, not a {}", target)
+        Types.check_types([[Types.LIST], [Types.STRING]], [target],
+            "Index target must be a string/list, not a {}")
 
-        utils.check_types(("number", "variable"),
-            "Index must be a number, not a {}", index)
+        Types.check_types([[Types.NUMBER]], [index],
+            "Index must be a number, not a {}")
 
     def _check_assignment_types(self, variable_type, value_type):
-        utils.check_types((
-            f"{variable_type} {variable_type}",
-            "variable         any",
-            "any              variable"
-        ),
-        "Cannot assign a {1} value to a {0}",
-        variable_type, value_type, is_types=True)
+        Types.check_types(
+            [[variable_type, variable_type]],
+            [variable_type, value_type],
+            "Cannot assign a {1} value to a {0}"
+        )

@@ -3,6 +3,7 @@ from .lexer import lexer, tokens, reserved
 from .. import filestate
 from .. import utils
 from ..logger import code_error, set_lexpos
+from ..types import Types
 
 precedence = (
     ("left", "OR"),
@@ -290,21 +291,21 @@ def p_single_type(prod):
                    | BOOLTYPE
                    | VARTYPE"""
     match prod[1]:
-        case "num":  prod[0] = "number"
-        case "str":  prod[0] = "string"
-        case "bool": prod[0] = "boolean"
-        case "var":  prod[0] = "variable"
+        case "num":  prod[0] = Types.NUMBER
+        case "str":  prod[0] = Types.STRING
+        case "bool": prod[0] = Types.BOOLEAN
+        case "var":  prod[0] = Types.GENERAL
 
 def p_type_declaration(prod):
     """type_declaration : COLON single_type
                         | LBRACKET RBRACKET
                         | """
     if len(prod) == 1:
-        prod[0] = "variable"
+        prod[0] = Types.GENERAL
     elif prod[1] == ":":
         prod[0] = prod[2]
     else:
-        prod[0] = "list"
+        prod[0] = Types.LIST
 
 def p_set_variable(prod):
     """set_variable : variable type_declaration EQUALS expression

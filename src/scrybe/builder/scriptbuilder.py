@@ -4,6 +4,7 @@ from ..codebuilder import CodeBuilder
 from .. import translations
 from .. import utils
 from ..logger import debug, code_error, set_lexpos
+from ..types import Types
 from inspect import signature
 
 class ScriptBuilder(CodeBuilder):
@@ -63,7 +64,7 @@ class ScriptBuilder(CodeBuilder):
 
     def translate_variable_attribute(self, expression, type, arguments=[]):
         variable_object = self.resolve_data_name(expression["object"])
-        variable_type = variable_object.type
+        variable_type = repr(variable_object.type)
         attribute = expression["attribute"]
 
         dictionary = getattr(translations, f"{variable_type}_{type}s")
@@ -93,13 +94,13 @@ class ScriptBuilder(CodeBuilder):
         )()
 
     def translate_method(self, expression):
-        function = expression["function"]
+        method = expression["function"]
         arguments = list(map(self.translate_expression, expression["arguments"]))
 
-        # Check if is a custom function
-        if function["type"] == "variable" and function["variable"] in self.functions:
-            function_name = function["variable"]
-            dict_entry = self.functions[function_name]
+        # Check if is a custom method
+        if method["type"] == "variable" and method["variable"] in self.functions:
+            method_name = method["variable"]
+            dict_entry = self.functions[method_name]
 
             if dict_entry["output"] is None:
                 code_error("This function has no return type")
@@ -112,11 +113,11 @@ class ScriptBuilder(CodeBuilder):
             return output_object
 
         # Check if method is of a list/variable
-        if "object" in function and self.resolve_data_name(function["object"], allow_nonexistent=True):
-            return self.translate_variable_attribute(function, "method", arguments)
+        if "object" in method and self.resolve_data_name(method["object"], allow_nonexistent=True):
+            return self.translate_variable_attribute(method, "method", arguments)
 
         callable_object = self.get_builtin(
-            function,
+            method,
             translations.resolve_function_reporter,
             "function"
         )
@@ -152,8 +153,8 @@ class ScriptBuilder(CodeBuilder):
             if getattr(variable_object, "name", None) == "sg_is_clone":
                 return Equals(variable_object, 1)
 
-            utils.check_types(("boolean", "variable"),
-                              "Cannot compare a {}", variable_object)
+            Types.check_types([[Types.BOOLEAN]], [variable_object],
+                "Cannot compare a {}")
             return Equals(variable_object, 1)
 
         condition = expression["condition"]
@@ -289,24 +290,24 @@ class ScriptBuilder(CodeBuilder):
         if variable_object:
             # Check that the variable isn't being redeclared as something different
             variable_type = variable_object.type
-            if statement_variable_type != variable_type and statement_variable_type != "variable":
-                code_error(f"Cannot redeclare a {variable_type} as a {statement_variable_type}")
+            if statement_variable_type != variable_type and statement_variable_type != Types.GENERAL:
+                code_error(f"Cannot redeclare a {repr(variable_type)} as a {repr(statement_variable_type)}")
         else:
             variable_type = statement_variable_type
-        self._check_assignment_types(variable_type, utils.get_type(variable_value))
+        self._check_assignment_types(variable_type, variable_value)
 
         if not variable_object:
             # Variable doesn't exist yet, create and set it
             match variable_type:
-                case "number":   initial_value = 0
-                case "string":   initial_value = ""
-                case "boolean":  initial_value = False
-                case "variable": initial_value = ""
-                case "list":     initial_value = []
+                case Types.NUMBER:  initial_value = 0
+                case Types.STRING:  initial_value = ""
+                case Types.BOOLEAN: initial_value = False
+                case Types.GENERAL: initial_value = ""
+                case Types.LIST:    initial_value = []
 
             variable_object = self.add_variable(variable_name, variable_type, initial_value)
 
-        if variable_object.type == "list":
+        if variable_object.type == Types.LIST:
             self.current_script.append(ClearList(variable_object))
             self.current_script.extend(AddToList(item, variable_object) for item in variable_value)
         else:
@@ -339,10 +340,9 @@ class ScriptBuilder(CodeBuilder):
         index = self.translate_expression(statement["index"])
         value = self.translate_expression(statement["value"])
 
-        target_type = utils.get_type(target)
         self.check_index_types(target, index)
-        if target_type != "list":
-            code_error(f"Can only assign to indices in a list, not a {target_type}")
+        Types.check_types([[Types.LIST]], [target],
+            "Can only change items in a list, not a {}")
 
         self.current_script.append(ReplaceInList(index + 1, target, value))
 
@@ -403,8 +403,8 @@ class ScriptBuilder(CodeBuilder):
 
     def get_control_flow_condition(self, expression):
         condition = self.translate_expression(expression)
-        utils.check_types(("boolean",),
-            "Condition must be a boolean, not a {}", condition)
+        Types.check_types([[Types.BOOLEAN]], [condition],
+            "Condition must be a boolean, not a {}")
 
         return condition
 
@@ -486,13 +486,13 @@ class ScriptBuilder(CodeBuilder):
                 if return_expression and not function_output_variable:
                     code_error("This function has no return type")
 
-                function_return_type = utils.get_type(function_output_variable)
-                return_expression_type = utils.get_type(return_expression)
-                utils.check_types((
-                    f"{function_return_type} {function_return_type}"
-                    f"variable               any"
-                ), "Return type must be a {}, not a {}", function_return_type, return_expression_type,
-                is_types = True)
+                function_return_type = Types.get_type(function_output_variable)
+                return_expression_type = Types.get_type(return_expression)
+                Types.check_types(
+                    [[function_return_type, function_return_type]],
+                    [function_return_type, return_expression_type],
+                    "Return type must be a {}, not a {}"
+                )
 
                 self.current_script.append(SetVariable(function_output_variable, return_expression))
 
@@ -534,7 +534,7 @@ class ScriptBuilder(CodeBuilder):
 
         # Redefine arguments in case the function modifies them
         for parameter_name, parameter_object in zip(function_parameters, parameter_objects):
-            variable_object = self.add_variable(parameter_name, "variable", "")
+            variable_object = self.add_variable(parameter_name, Types.GENERAL, "")
             this_script.append(SetVariable(variable_object, parameter_object))
 
         if function_type is not None:
@@ -597,7 +597,7 @@ class ScriptBuilder(CodeBuilder):
             this_script.append(WhenBroadcastReceived(broadcast_object))
             # Then the scoped message setter (if present)
             if message_argument:
-                message_object = self.add_variable(message_argument, "variable", "")
+                message_object = self.add_variable(message_argument, Types.GENERAL, "")
                 message_setter = SetVariable(message_object, variable_object)
                 this_script.append(message_setter)
 

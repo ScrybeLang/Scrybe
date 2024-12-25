@@ -83,7 +83,7 @@ class SetupBuilder(CodeBuilder):
             if self.resolve_data_name(variable_name, allow_nonexistent=True):
                 code_error("Cannot redeclare globals")
 
-            self._check_assignment_types(variable_type, utils.get_type(variable_value))
+            self._check_assignment_types(variable_type, variable_value)
             self.add_variable(
                 variable_name, variable_type, variable_value
             )

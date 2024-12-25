@@ -3,6 +3,7 @@ from ScratchGen.datacontainer import DataContainer
 from ScratchGen import constants
 from ScratchGen.datacontainer import List
 from .logger import code_error
+from .types import Types
 from . import utils
 
 def _chain_multiply(base, exponent):
@@ -51,7 +52,7 @@ def _exponent_function(base, exponent):
 
 def _contains(sub_item, item):
     if isinstance(item, List):
-        return utils.copy_and_apply_type(ListContains(item, sub_item), "variable")
+        return utils.set_type(ListContains(item, sub_item), Types.GENERAL)
     return Contains(item, sub_item)
 
 boolean_conditions = {
@@ -96,45 +97,45 @@ operations = {
 reporters = {
     "scratch": {
         "backdrop": {
-            "name":             (lambda: Backdrop(NAME),   False),
-            "number":           (lambda: Backdrop(NUMBER), False),
+            "name":        (lambda: utils.set_type(Backdrop(NAME), Types.STRING),   False),
+            "number":      (lambda: utils.set_type(Backdrop(NUMBER), Types.NUMBER), False),
         },
-        "answer":               (Answer,                   False),
-        "mouse_down":           (MouseDown,                False),
-        "mouse_x":              (MouseX,                   False),
-        "mouse_y":              (MouseY,                   False),
-        "loudness":             (Loudness,                 False),
-        "username":             (Username,                 False)
+        "answer":          (Answer,    False),
+        "mouse_down":      (MouseDown, False),
+        "mouse_x":         (MouseX,    False),
+        "mouse_y":         (MouseY,    False),
+        "loudness":        (Loudness,  False),
+        "username":        (Username,  False)
     },
 
     "C": {},
 
     "time": {
-        "year":                 (lambda: Current(YEAR),        False),
-        "month":                (lambda: Current(MONTH),       False),
-        "date":                 (lambda: Current(DATE),        False),
-        "day_of_week":          (lambda: Current(DAY_OF_WEEK), False),
-        "hour":                 (lambda: Current(HOUR),        False),
-        "minute":               (lambda: Current(MINUTE),      False),
-        "second":               (lambda: Current(SECOND),      False),
-        "timer":                (Timer,                        False),
-        "days_since_2000":      (DaysSince2000,                False)
+        "year":            (lambda: Current(YEAR),        False),
+        "month":           (lambda: Current(MONTH),       False),
+        "date":            (lambda: Current(DATE),        False),
+        "day_of_week":     (lambda: Current(DAY_OF_WEEK), False),
+        "hour":            (lambda: Current(HOUR),        False),
+        "minute":          (lambda: Current(MINUTE),      False),
+        "second":          (lambda: Current(SECOND),      False),
+        "timer":           (Timer,                        False),
+        "days_since_2000": (DaysSince2000,                False)
     },
 
     "math": {
-        "pi":                   (lambda: 3.141592653589793, False)
+        "pi":              (lambda: 3.141592653589793, False)
     },
 
     "this": {
-        "x":                    (XPosition,               True),
-        "y":                    (YPosition,               True),
-        "direction":            (Direction,               True),
-        "size":                 (Size,                    True),
+        "x":               (XPosition, True),
+        "y":               (YPosition, True),
+        "direction":       (Direction, True),
+        "size":            (Size,      True),
         "costume": {
-            "name":             (lambda: Costume(NAME),   True),
-            "number":           (lambda: Costume(NUMBER), True),
+            "name":        (lambda: utils.set_type(Costume(NAME), Types.STRING),   True),
+            "number":      (lambda: utils.set_type(Costume(NUMBER), Types.NUMBER), True),
         },
-        "volume":               (Volume,                  False)
+        "volume":          (Volume, False)
     }
 }
 
@@ -157,27 +158,40 @@ for constant in (
 
 def _random_choice(item):
     if isinstance(item, List):
-        return utils.copy_and_apply_type(ItemOfList(PickRandom(1, ListLength(item)), item), "variable")
+        return utils.set_type(ItemOfList(PickRandom(1, ListLength(item)), item), Types.GENERAL)
     return LetterOf(PickRandom(1, LengthOf(item)), item)
 
 def _convert_type(object, new_type):
-    object_type = utils.get_type(object)
+    object_type = Types.get_type(object)
+    object_type_name = repr(object_type)
+    new_type_name = repr(new_type)
 
-    utils.check_types((
-        "any  any",
-        "list string"
-    ),
-    "Cannot convert a {} to a {}", object_type, new_type, is_types=True)
+    # Too complicated and uneccessary to use check_types here
+    for possible_combination in (
+        (Types.LIST, Types.STRING),     # List -> string
+        (Types.STRING, Types.BOOLEAN),  # String -> boolean
+        (Types.NUMBER, Types.STRING),   # Number -> string
+        (Types.STRING, Types.NUMBER),   # String -> number
+        (Types.NUMBER, Types.BOOLEAN),  # Number -> boolean
+        (Types.BOOLEAN, Types.NUMBER)   # Boolean -> number
+    ):
+        combo_init, combo_target = possible_combination
+        if Types._is_type(object_type, combo_init) and Types._is_type(new_type, combo_target):
+            break
+    else:  # Rare for/else in the wild
+        code_error(f"Cannot convert a {object_type_name} to a {new_type_name}")
 
+    new_type_is_number = new_type == Types.NUMBER
     if isinstance(object, (Block, DataContainer)):
-        if new_type == "number": return Add(object, 0)
-        if new_type == "string": return utils.copy_and_apply_type(object, "string")
+        if new_type_is_number: return Add(object, 0)
+        return utils.set_type(object, Types.STRING)
 
     try:
         base = {"0b": 2, "0o": 8, "0x": 16}.get(str(object)[:2].lower(), 10)
-        return {"number": lambda x: int(x, base), "string": str}[new_type](object)
+        if new_type_is_number: return int(object, base)
+        return str(object)
     except:
-        code_error(f"Cannot convert {repr(object)} to a {new_type}")
+        code_error(f"Cannot convert a {object_type_name} to a {new_type_name}")
 
 function_reporters = {
     "scratch": {
@@ -215,8 +229,8 @@ function_reporters = {
         "distance_to":          (DistanceTo,         True)
     },
 
-    "tonum":                    (lambda x: _convert_type(x, "number"), False),
-    "tostr":                    (lambda x: _convert_type(x, "string"), False)
+    "tonum":                    (lambda x: _convert_type(x, Types.NUMBER), False),
+    "tostr":                    (lambda x: _convert_type(x, Types.STRING), False)
 }
 
 # `set_effect`/`change_effect` is only one function but can translate to
