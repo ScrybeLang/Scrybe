@@ -361,18 +361,17 @@ class ScriptBuilder(CodeBuilder):
         if callable_object:
             self.check_argument_count(callable_object, len(arguments))
 
-        else:
+        elif self.functions.get(function.get("variable")):
             # Check custom functions
-            if self.functions.get(function.get("variable")):
-                dict_entry = self.functions[function["variable"]]
+            dict_entry = self.functions[function["variable"]]
 
-                # You may invoke a function with a return type as a statement
-                # because I don't really see any downsides to it
+            # You may invoke a function with a return type as a statement
+            # because I don't really see any downsides to it
 
-                callable_object = dict_entry["callable"]
-                parameter_count = dict_entry["parameters"]
+            callable_object = dict_entry["callable"]
+            parameter_count = dict_entry["parameters"]
 
-                self.argument_error_message(0, parameter_count, len(arguments))
+            self.argument_error_message(0, parameter_count, len(arguments))
 
         # Check variable/list functions
         if not callable_object and self.resolve_data_name(function.get("object", None), allow_nonexistent=True):
