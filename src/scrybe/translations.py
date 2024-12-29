@@ -4,7 +4,7 @@ from ScratchGen import constants
 from ScratchGen.datacontainer import List
 from .logger import code_error
 from .types import Types
-from . import utils
+from .utils import get_depth, set_type, literal_operations
 
 def _chain_multiply(base, exponent):
     if exponent == 2:
@@ -31,7 +31,7 @@ def _exponent_function(base, exponent):
 
     # For cases when it would take less blocks just to multiply it manually
     if isinstance(exponent, int):
-        base_depth = utils.get_depth(base)
+        base_depth = get_depth(base)
         chained_object_depth = base_depth * (exponent - 1) # Depth of resulting chained object
         if 0 < chained_object_depth < 13: # Full exponentiation has a depth of 13 objects
             return _chain_multiply(base, exponent)
@@ -52,7 +52,7 @@ def _exponent_function(base, exponent):
 
 def _contains(sub_item, item):
     if isinstance(item, List):
-        return utils.set_type(ListContains(item, sub_item), Types.GENERAL)
+        return set_type(ListContains(item, sub_item), Types.GENERAL)
     return Contains(item, sub_item)
 
 boolean_conditions = {
@@ -80,25 +80,25 @@ def _make_lambda(original_function, scratchgen_function):
     )
 
 operations = {
-    "+":   _make_lambda(utils.literal_operations["+"],  Add),
-    "-":   _make_lambda(utils.literal_operations["-"],  Subtract),
-    "*":   _make_lambda(utils.literal_operations["*"],  Multiply),
-    "/":   _make_lambda(utils.literal_operations["/"],  Divide),
-    "%":   _make_lambda(utils.literal_operations["%"],  Modulo),
+    "+":   _make_lambda(literal_operations["+"],  Add),
+    "-":   _make_lambda(literal_operations["-"],  Subtract),
+    "*":   _make_lambda(literal_operations["*"],  Multiply),
+    "/":   _make_lambda(literal_operations["/"],  Divide),
+    "%":   _make_lambda(literal_operations["%"],  Modulo),
     "**":  _exponent_function,
-    "<":   _make_lambda(utils.literal_operations["<"],  number_conditions["<"]),
-    ">":   _make_lambda(utils.literal_operations[">"],  number_conditions[">"]),
-    "<=":  _make_lambda(utils.literal_operations["<="], number_conditions["<="]),
-    ">=":  _make_lambda(utils.literal_operations[">="], number_conditions[">="]),
-    "==":  _make_lambda(utils.literal_operations["=="], number_conditions["=="]),
-    "!=":  _make_lambda(utils.literal_operations["!="], number_conditions["!="])
+    "<":   _make_lambda(literal_operations["<"],  number_conditions["<"]),
+    ">":   _make_lambda(literal_operations[">"],  number_conditions[">"]),
+    "<=":  _make_lambda(literal_operations["<="], number_conditions["<="]),
+    ">=":  _make_lambda(literal_operations[">="], number_conditions[">="]),
+    "==":  _make_lambda(literal_operations["=="], number_conditions["=="]),
+    "!=":  _make_lambda(literal_operations["!="], number_conditions["!="])
 }
 
 reporters = {
     "scratch": {
         "backdrop": {
-            "name":        (lambda: utils.set_type(Backdrop(NAME), Types.STRING),   False),
-            "number":      (lambda: utils.set_type(Backdrop(NUMBER), Types.NUMBER), False),
+            "name":        (lambda: set_type(Backdrop(NAME), Types.STRING),   False),
+            "number":      (lambda: set_type(Backdrop(NUMBER), Types.NUMBER), False),
         },
         "answer":          (Answer,    False),
         "mouse_down":      (MouseDown, False),
@@ -132,8 +132,8 @@ reporters = {
         "direction":       (Direction, True),
         "size":            (Size,      True),
         "costume": {
-            "name":        (lambda: utils.set_type(Costume(NAME), Types.STRING),   True),
-            "number":      (lambda: utils.set_type(Costume(NUMBER), Types.NUMBER), True),
+            "name":        (lambda: set_type(Costume(NAME), Types.STRING),   True),
+            "number":      (lambda: set_type(Costume(NUMBER), Types.NUMBER), True),
         },
         "volume":          (Volume, False)
     }
@@ -158,7 +158,7 @@ for constant in (
 
 def _random_choice(item):
     if isinstance(item, List):
-        return utils.set_type(ItemOfList(PickRandom(1, ListLength(item)), item), Types.GENERAL)
+        return set_type(ItemOfList(PickRandom(1, ListLength(item)), item), Types.GENERAL)
     return LetterOf(PickRandom(1, LengthOf(item)), item)
 
 def _tonum(object):
@@ -170,7 +170,7 @@ def _tonum(object):
 
     if isinstance(object, (Block, DataContainer)):
         # Make Scrybe just treat it as a number
-        return utils.set_type(object, Types.NUMBER)
+        return set_type(object, Types.NUMBER)
 
     try:
         # Do actual conversion
@@ -194,7 +194,7 @@ def _tostr(object):
     )
 
     if isinstance(object, (Block, DataContainer)):
-        return utils.set_type(object, Types.STRING)
+        return set_type(object, Types.STRING)
 
     return str(object)
 
