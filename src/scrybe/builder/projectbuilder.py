@@ -5,7 +5,7 @@ from .scriptbuilder import ScriptBuilder
 from ..logger import debug, warn, code_error, set_lexpos
 from ..types import Types
 from .. import filestate
-import glob
+from glob import glob
 import os
 
 class ProjectBuilder:
@@ -198,7 +198,7 @@ class ProjectBuilder:
 
         # `path_list` is a list of filepaths and/or glob expressions
         for expression in path_list:
-            for file in glob.glob(expression):
+            for file in glob(expression):
                 function(file)
                 debug(f'  Added asset "{file}"')
 

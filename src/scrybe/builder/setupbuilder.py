@@ -1,6 +1,5 @@
 from .codebuilder import CodeBuilder
 from ..logger import set_lexpos, code_error
-from .. import utils
 
 class SetupBuilder(CodeBuilder):
     def __init__(self, projectbuilder, statements):

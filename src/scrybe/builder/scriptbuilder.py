@@ -2,7 +2,6 @@ from ScratchGen.block import Boolean
 from ScratchGen.blocks import *
 from .codebuilder import CodeBuilder
 from .. import translations
-from .. import utils
 from ..logger import debug, code_error, set_lexpos
 from ..types import Types
 from inspect import signature

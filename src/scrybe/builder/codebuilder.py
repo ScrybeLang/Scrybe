@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from ScratchGen.blocks import *
 from ..types import Types
 from .. import translations
-from .. import utils
+from ..utils import set_type
 
 class CodeBuilder(ABC):
     @abstractmethod
@@ -115,7 +115,7 @@ class CodeBuilder(ABC):
         index += 1
 
         if Types.get_type(target) == Types.LIST:
-            return utils.set_type(ItemOfList(index, target), Types.GENERAL)
+            return set_type(ItemOfList(index, target), Types.GENERAL)
         return LetterOf(index, target)
 
     def _check_index_types(self, target, index):

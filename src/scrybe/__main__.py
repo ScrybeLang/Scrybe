@@ -3,12 +3,12 @@ from .scriptparser import parse_file as parse_script
 from .builder import ProjectBuilder
 from .logger import log_prefixes, logger, debug, info, warn, error
 from . import filestate
+from argparse import ArgumentParser
 import os
 import glob
-import argparse
 
 def get_arguments():
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
     parser.add_argument("path", help="Relative path to the project directory")
     parser.add_argument("filename", nargs="?", help="Name of the output file with .sb3 extension")
     parser.add_argument("-log", choices=log_prefixes.keys(), default="info", help="Logging level")

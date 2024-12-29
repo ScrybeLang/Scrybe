@@ -1,6 +1,5 @@
 from ply.yacc import PlyLogger
 from copy import deepcopy
-from .logger import code_error
 import operator
 
 forbidden_chars = r'<>:"/\|?*'

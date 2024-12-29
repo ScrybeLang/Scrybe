@@ -1,5 +1,4 @@
 from enum import Flag, auto
-from itertools import cycle
 from .logger import code_error
 from ScratchGen.blocks import Block, Reporter, Boolean
 from ScratchGen.datacontainer import DataContainer, Variable, List
