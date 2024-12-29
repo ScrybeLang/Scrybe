@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from ScratchGen.blocks import *
-from .types import Types
-from . import translations
-from . import utils
+from ..types import Types
+from .. import translations
+from .. import utils
 
 class CodeBuilder(ABC):
     @abstractmethod
