@@ -161,37 +161,42 @@ def _random_choice(item):
         return utils.set_type(ItemOfList(PickRandom(1, ListLength(item)), item), Types.GENERAL)
     return LetterOf(PickRandom(1, LengthOf(item)), item)
 
-def _convert_type(object, new_type):
-    object_type = Types.get_type(object)
-    object_type_name = repr(object_type)
-    new_type_name = repr(new_type)
+def _tonum(object):
+    Types.check_types(
+        [[Types.NUMBER], [Types.STRING], [Types.BOOLEAN]],
+        [object],
+        "Cannot convert a {} to a number"
+    )
 
-    # Too complicated and uneccessary to use check_types here
-    for possible_combination in (
-        (Types.LIST, Types.STRING),     # List -> string
-        (Types.STRING, Types.BOOLEAN),  # String -> boolean
-        (Types.NUMBER, Types.STRING),   # Number -> string
-        (Types.STRING, Types.NUMBER),   # String -> number
-        (Types.NUMBER, Types.BOOLEAN),  # Number -> boolean
-        (Types.BOOLEAN, Types.NUMBER)   # Boolean -> number
-    ):
-        combo_init, combo_target = possible_combination
-        if Types._is_type(object_type, combo_init) and Types._is_type(new_type, combo_target):
-            break
-    else:  # Rare for/else in the wild
-        code_error(f"Cannot convert a {object_type_name} to a {new_type_name}")
-
-    new_type_is_number = new_type == Types.NUMBER
     if isinstance(object, (Block, DataContainer)):
-        if new_type_is_number: return Add(object, 0)
-        return utils.set_type(object, Types.STRING)
+        # Make Scrybe just treat it as a number
+        return utils.set_type(object, Types.NUMBER)
 
     try:
-        base = {"0b": 2, "0o": 8, "0x": 16}.get(str(object)[:2].lower(), 10)
-        if new_type_is_number: return int(object, base)
-        return str(object)
+        # Do actual conversion
+        if isinstance(object, bool): return int(object)
+        if isinstance(object, (int, float)): return object
+        match object[:2].lower():
+            case "0b": return int(object, 2)
+            case "0o": return int(object, 8)
+            case "0x": return int(object, 16)
+            case _:    return float(object)
+
     except:
-        code_error(f"Cannot convert a {object_type_name} to a {new_type_name}")
+        object_type = repr(Types.get_type(object))
+        code_error(f"Cannot convert a {object_type} to a number")
+
+def _tostr(object):
+    Types.check_types(
+        [[Types.NUMBER], [Types.STRING]],
+        [object],
+        "Cannot convert a {} to a string"
+    )
+
+    if isinstance(object, (Block, DataContainer)):
+        return utils.set_type(object, Types.STRING)
+
+    return str(object)
 
 function_reporters = {
     "scratch": {
@@ -229,8 +234,8 @@ function_reporters = {
         "distance_to":          (DistanceTo,         True)
     },
 
-    "tonum":                    (lambda x: _convert_type(x, Types.NUMBER), False),
-    "tostr":                    (lambda x: _convert_type(x, Types.STRING), False)
+    "tonum":                    (_tonum, False),
+    "tostr":                    (_tostr, False)
 }
 
 # `set_effect`/`change_effect` is only one function but can translate to

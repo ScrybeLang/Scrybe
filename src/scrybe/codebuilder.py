@@ -103,7 +103,7 @@ class CodeBuilder(ABC):
             "Cannot concatenate a {} to a {}"
         )
 
-        if isinstance(operand_1, str) and isinstance(operand_1, str):
+        if isinstance(operand_1, str) and isinstance(operand_2, str):
             return operand_1 + operand_2
         return Join(operand_1, operand_2)
 
