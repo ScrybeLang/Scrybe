@@ -69,18 +69,20 @@ class CodeBuilder(ABC):
         return translations.operations[condition](comparand_1, comparand_2)
 
     def translate_logical_binary_operation(self, condition, comparand_1, comparand_2):
-        is_in = condition == "in"
+        operand_1 = self.translate_expression(comparand_1)
+        operand_2 = self.translate_expression(comparand_2)
 
-        # Only the inputs for "in" aren't boolean inputs
-        function = self.translate_expression if is_in else self.translate_boolean
-        operand_1 = function(comparand_1)
-        operand_2 = function(comparand_2)
-
-        if is_in:
+        if condition == "in":
             Types.check_types(
                 [[Types.LIST], [Types.STRING]],
                 [operand_2],
                 "{} is not a container"
+            )
+        else:
+            Types.check_types(
+                [[Types.BOOLEAN, Types.BOOLEAN]],
+                [operand_1, operand_2],
+                "Cannot perform logical operation on a {} and a {}"
             )
 
         return translations.boolean_conditions[condition](operand_1, operand_2)
