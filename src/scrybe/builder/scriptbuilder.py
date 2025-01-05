@@ -35,29 +35,32 @@ class ScriptBuilder(CodeBuilder):
 
         self.is_clone_variable = None
 
-    # Non-boolean expression translation
+    # Expression translation
 
     def translate_expression(self, expression):
         if isinstance(expression, bool):
-            return self.translate_boolean(expression)
+            # True = 1, False = 0
+            return Equals(int(expression), 1)
 
         if isinstance(expression, list):
             return list(map(self.translate_expression, expression))
 
         if not isinstance(expression, dict):
+            # Handle all other literals
             return expression
 
         set_lexpos(expression["lexpos"])
 
         match expression["type"]:
-            case "binary operation": translation_function = self.translate_numerical_binary_operation
-            case "unary minus":      translation_function = self.translate_unary_minus
-            case "condition":        translation_function = self.translate_boolean
-            case "concatenation":    translation_function = self.translate_concatenation
-            case "index":            translation_function = self.translate_index
-            case "get attribute":    translation_function = self.translate_attribute
-            case "function call":    translation_function = self.translate_method
-            case "variable":         return self.resolve_data_name(expression["variable"])
+            case "index":                translation_function = self.translate_index
+            case "function call":        translation_function = self.translate_function_call
+            case "concatenation":        translation_function = self.translate_concatenation
+            case "numerical operation":  translation_function = self.translate_numerical_operation
+            case "comparison operation": translation_function = self.translate_comparison_operation
+            case "logical operation":    translation_function = self.translate_logical_operation
+
+            case "get attribute":        translation_function = self.translate_attribute
+            case "variable":             return self.resolve_data_name(expression["variable"])
 
         return translation_function(expression)
 
@@ -92,14 +95,14 @@ class ScriptBuilder(CodeBuilder):
             "attribute"
         )()
 
-    def translate_method(self, expression):
-        method = expression["function"]
+    def translate_function_call(self, expression):
+        function = expression["function"]
         arguments = list(map(self.translate_expression, expression["arguments"]))
 
-        # Check if is a custom method
-        if method["type"] == "variable" and method["variable"] in self.functions:
-            method_name = method["variable"]
-            dict_entry = self.functions[method_name]
+        # Check if is a custom function
+        if function["type"] == "variable" and function["variable"] in self.functions:
+            function_name = function["variable"]
+            dict_entry = self.functions[function_name]
 
             if dict_entry["output"] is None:
                 code_error("This function has no return type")
@@ -112,11 +115,11 @@ class ScriptBuilder(CodeBuilder):
             return output_object
 
         # Check if method is of a list/variable
-        if "object" in method and self.resolve_data_name(method["object"], allow_nonexistent=True):
-            return self.translate_variable_attribute(method, "method", arguments)
+        if "object" in function and self.resolve_data_name(function["object"], allow_nonexistent=True):
+            return self.translate_variable_attribute(function, "method", arguments)
 
         callable_object = self.get_builtin(
-            method,
+            function,
             translations.resolve_function_reporter,
             "function"
         )
@@ -128,47 +131,6 @@ class ScriptBuilder(CodeBuilder):
                 return callable_object(self.projectbuilder.sprites[target]["object"])
 
         return callable_object(*arguments)
-
-    # Boolean expression translation
-
-    def translate_boolean(self, expression):
-        if isinstance(expression, bool):
-            # True = 1, False = 0
-            return Equals(int(expression), 1)
-
-        if isinstance(expression, str):
-            # Check if string is not empty
-            return Not(Equals(expression, ""))
-
-        if isinstance(expression, (int, float)):
-            # Zero is the only numerically falsy value
-            return Not(Equals(expression, 0))
-
-        if "condition" not in expression:
-            variable_object = self.translate_expression(expression)
-
-            if isinstance(variable_object, Boolean):
-                return variable_object
-            if getattr(variable_object, "name", None) == "sg_is_clone":
-                return Equals(variable_object, 1)
-
-            Types.check_types([[Types.BOOLEAN]], [variable_object],
-                "Cannot compare a {}")
-            return Equals(variable_object, 1)
-
-        condition = expression["condition"]
-
-        if condition == "not":
-            return Not(self.translate_boolean(expression["comparand"]))
-
-        translated = self.translate_logical_operation(
-            condition,
-            expression["comparand 1"],
-            expression["comparand 2"]
-        )
-        if isinstance(translated, bool): # translate_logical_expression can return a Boolean (for building setup)
-            return self.translate_boolean(translated)
-        return translated
 
     # Defined variables
 
@@ -314,7 +276,7 @@ class ScriptBuilder(CodeBuilder):
 
     def apply_in_place_assignment(self, statement):
         operation_type = statement["operation"][:-1] # Cut off the trailing equals sign
-        operation = Join if operation_type == ".." else translations.operations[operation_type]
+        operation = Join if operation_type == ".." else translations.numerical_operations[operation_type]
 
         to_assign = statement["variable"]
         operand = self.translate_expression(statement["operand"])
@@ -447,12 +409,12 @@ class ScriptBuilder(CodeBuilder):
         expression = statement["expression"]
         body = self.build_inner_statements(statement["body"])
 
-        if expression == True:
+        if expression is True:
             # Optimize to a "forever" loop if expression is just `true`
             self.current_script.append(Forever(*body))
         else:
             condition = self.get_control_flow_condition(expression)
-            self.current_script.append(RepeatUntil(Not(condition), *body))
+            self.current_script.append(RepeatUntil(translations._scrybe_not(condition), *body))
 
     def apply_for(self, statement):
         initializer_statement = statement["initializer"]
@@ -469,7 +431,7 @@ class ScriptBuilder(CodeBuilder):
             modify_scope = False # Avoid changing the current scope
         )
         expression = self.get_control_flow_condition(expression)
-        self.current_script.append(RepeatUntil(Not(expression), *statements))
+        self.current_script.append(RepeatUntil(translations._scrybe_not(expression), *statements))
 
         self.exit_scope()
 

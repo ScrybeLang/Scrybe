@@ -2,9 +2,10 @@ from ScratchGen.blocks import *
 from ScratchGen.datacontainer import DataContainer
 from ScratchGen import constants
 from ScratchGen.datacontainer import List
+import operator
 from .logger import code_error
 from .types import Types
-from .utils import get_depth, set_type, literal_operations
+from .utils import get_depth, set_type
 
 def _chain_multiply(base, exponent):
     if exponent == 2:
@@ -14,7 +15,7 @@ def _chain_multiply(base, exponent):
 
 # Unfortunately, Scratch has no first-party implementation of exponentiation,
 # so we do some tricky math workarounds
-def _exponent_function(base, exponent):
+def _scrybe_exp(base, exponent):
     base_numeric = isinstance(base, (int, float))
     exponent_numeric = isinstance(exponent, (int, float))
 
@@ -22,7 +23,6 @@ def _exponent_function(base, exponent):
     if base_numeric and exponent_numeric:
         return base ** exponent
 
-    # Simple cases
     if not base_numeric and exponent_numeric:
         if exponent == -1:  return Divide(1, base)              # x ** -1 == 1 / x
         if exponent == 0:   return 1                            # x ** 0 == 1
@@ -32,66 +32,95 @@ def _exponent_function(base, exponent):
     # For cases when it would take less blocks just to multiply it manually
     if isinstance(exponent, int):
         base_depth = get_depth(base)
-        chained_object_depth = base_depth * (exponent - 1) # Depth of resulting chained object
-        if 0 < chained_object_depth < 13: # Full exponentiation has a depth of 13 objects
+        chained_object_depth = base_depth * (exponent - 1)  # Depth of resulting chained object
+        if 0 < chained_object_depth < 13:  # Full exponentiation has a depth of 13 objects
             return _chain_multiply(base, exponent)
 
-    # The first tricky math part; this only works with positive bases but any exponent works
+    # This uses the properties of logarithms to calculate the power of a number without exponentation.
+    # Lower bases are more accurate in the Scratch VM, so we use the lower of the two bases provided.
     base = abs(base) if base_numeric else Operation(ABSOLUTE, base)
     exponent_part = Operation(E_TO_THE, Multiply(Operation(NATURAL_LOGARITHM, base), exponent))
 
     if base_numeric and base >= 0: # If the base is a positive literal number
         return exponent_part
 
-    # The second tricky math part (I engineered this myself!); this calculates the correct sign multiplier (-1 or 1)
+    # The second tricky math part, engineered by myself; this calculates the correct sign multiplier (-1 or 1)
     # of the power. For positive bases, the sign is always positive. For negative bases, the sign is negative
-    # if the exponent is odd. It's complicated, but just trust me bro:
-    # https://www.reddit.com/r/scratch/comments/1e90p0f/how_to_calculate_exponents/ (read my correction comment)
+    # if the exponent is odd. https://www.reddit.com/comments/1e90p0f/
     sign_part = Add(Multiply(Multiply(LessThan(Modulo(Add(exponent, 1), 2), 1), Multiply(-1, LessThan(base, 0))), 2), 1)
     return Multiply(exponent_part, sign_part)
 
-def _contains(sub_item, item):
-    if isinstance(item, List):
-        return set_type(ListContains(item, sub_item), Types.GENERAL)
-    return Contains(item, sub_item)
-
-boolean_conditions = {
-    "and": And,
-    "or":  Or,
-    "in":  _contains
+numerical_operations = {
+    "+":        operator.add,
+    "-":        operator.sub,
+    "*":        operator.mul,
+    "/":        operator.truediv,
+    "%":        operator.mod,
+    "**":       _scrybe_exp,
+    "negation": operator.neg
 }
 
-number_conditions = {
-    "<":   LessThan,
-    ">":   GreaterThan,
-    "<=":  lambda x, y: Not(GreaterThan(x, y)),
-    ">=":  lambda x, y: Not(LessThan(x, y)),
-    "==":  Equals,
-    "!=":  lambda x, y: Not(Equals(x, y))
+comparison_operations = {
+    "<":   operator.lt,
+    ">":   operator.gt,
+    "<=":  operator.le,
+    ">=":  operator.ge,
+    "==":  operator.eq,
+    "!=":  operator.ne
 }
 
-# For if the left operand is a number
-# This is needed because only reporters have overridden math dunder methods
-def _make_lambda(original_function, scratchgen_function):
-    return lambda x, y: (
-        scratchgen_function(x, y) if (isinstance(x, (int, float)) and not
-                                      isinstance(y, (int, float)))
-        else original_function(x, y)
-    )
+def _scrybe_not(x):
+    if isinstance(x, bool):
+        return Equals(int(x), 0)
 
-operations = {
-    "+":   _make_lambda(literal_operations["+"],  Add),
-    "-":   _make_lambda(literal_operations["-"],  Subtract),
-    "*":   _make_lambda(literal_operations["*"],  Multiply),
-    "/":   _make_lambda(literal_operations["/"],  Divide),
-    "%":   _make_lambda(literal_operations["%"],  Modulo),
-    "**":  _exponent_function,
-    "<":   _make_lambda(literal_operations["<"],  number_conditions["<"]),
-    ">":   _make_lambda(literal_operations[">"],  number_conditions[">"]),
-    "<=":  _make_lambda(literal_operations["<="], number_conditions["<="]),
-    ">=":  _make_lambda(literal_operations[">="], number_conditions[">="]),
-    "==":  _make_lambda(literal_operations["=="], number_conditions["=="]),
-    "!=":  _make_lambda(literal_operations["!="], number_conditions["!="])
+    if isinstance(x, Reporter) and x.opcode == "operator_not":
+        # not not x == x
+        return x.contained_blocks[0]
+
+    return Not(x)
+
+def _scrybe_and(x, y):
+    x_is_bool = isinstance(x, bool)
+    y_is_bool = isinstance(y, bool)
+
+    if x_is_bool and y_is_bool:
+        return Equals(int(x and y), 1)
+
+    # x and true == x
+    # x and false == not x
+    if x_is_bool: return y if x else Not(y)
+    if y_is_bool: return x if y else Not(x)
+
+    return And(x, y)
+
+def _scrybe_or(x, y):
+    x_is_bool = isinstance(x, bool)
+    y_is_bool = isinstance(y, bool)
+
+    if x_is_bool and y_is_bool:
+        return Equals(int(x or y), 1)
+
+    # x or true == true
+    # x or false == x
+    if x_is_bool: return Equals(1, 1) if x else y
+    if y_is_bool: return Equals(1, 1) if y else x
+
+    return Or(x, y)
+
+def _scrybe_in(sub_item, item):
+    if isinstance(item, str) and isinstance(sub_item, str):
+        result = sub_item in item
+        return Equals(int(result), 1)
+
+    if Types.get_type(item) == Types.STRING:
+        return Contains(item, sub_item)
+    return ListContains(item, sub_item)
+
+logical_operations = {
+    "not": _scrybe_not,
+    "and": _scrybe_and,
+    "or":  _scrybe_or,
+    "in":  _scrybe_in
 }
 
 reporters = {
@@ -379,9 +408,10 @@ def _resolve(attribute, nested_dict):
         if attribute["type"] == "variable":
             return nested_dict[attribute["variable"]]
 
-        obj = _resolve(attribute["object"], nested_dict)
-        attr = attribute["attribute"]
-        return obj[attr]
+        object = attribute["object"]
+        possible_attributes = _resolve(object, nested_dict)
+        attribute = attribute["attribute"]
+        return possible_attributes[attribute]
 
     except:
         return None

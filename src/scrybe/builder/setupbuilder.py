@@ -8,49 +8,28 @@ class SetupBuilder(CodeBuilder):
 
         self.variables = {}
 
-    # Non-boolean expression translation
+    # Expression translation
 
     def translate_expression(self, expression):
-        if isinstance(expression, (int, float, str, bool)):
-            return expression
-
         if isinstance(expression, list):
             return list(map(self.translate_expression, expression))
+
+        if not isinstance(expression, dict):
+            # Handle all other literals
+            return expression
 
         set_lexpos(expression["lexpos"])
 
         match expression["type"]:
-            case "binary operation": translation_function = self.translate_numerical_binary_operation
-            case "unary minus":      translation_function = self.translate_unary_minus
-            case "condition":        translation_function = self.translate_boolean
-            case "concatenation":    translation_function = self.translate_concatenation
-            case "index":            translation_function = self.translate_index
-            case "variable":         return self.resolve_data_name(expression["variable"])
+            case "index":                translation_function = self.translate_index
+            case "concatenation":        translation_function = self.translate_concatenation
+            case "numerical operation":  translation_function = self.translate_numerical_operation
+            case "comparison operation": translation_function = self.translate_comparison_operation
+            case "logical operation":    translation_function = self.translate_logical_operation
+
+            case "variable":             return self.resolve_data_name(expression["variable"])
 
         return translation_function(expression)
-
-    # Boolean expression translation
-
-    def translate_boolean(self, expression):
-        if isinstance(expression, (int, float)):
-            return expression != 0
-
-        if isinstance(expression, str):
-            return expression != ""
-
-        if isinstance(expression, bool):
-            return expression
-
-        condition = expression["condition"]
-
-        if condition == "not":
-            return not self.translate_boolean(expression)
-
-        return self.translate_logical_operation(
-            condition,
-            expression["comparand 1"],
-            expression["comparand 2"]
-        )
 
     # Defined (global) variables
 

@@ -1,22 +1,7 @@
 from ply.yacc import PlyLogger
 from copy import deepcopy
-import operator
 
 forbidden_chars = r'<>:"/\|?*'
-literal_operations = {
-    "+":   operator.add,
-    "-":   operator.sub,
-    "*":   operator.mul,
-    "/":   operator.truediv,
-    "%":   operator.mod,
-    "**":  operator.pow,
-    "<":   operator.lt,
-    ">":   operator.gt,
-    "<=":  operator.le,
-    ">=":  operator.ge,
-    "==":  operator.eq,
-    "!=":  operator.ne
-}
 
 # Helper function to create a rule-abiding Windows file name
 def to_filename(string):
@@ -24,8 +9,9 @@ def to_filename(string):
         char for char in string if char not in forbidden_chars
     )
 
-    if filtered_chars[-1] in ". ":
-        return filtered_chars[:-1]
+    # Trim trailing dots and spaces (technically not necessary)
+    while filtered_chars[-1] in ". ":
+        filtered_chars = filtered_chars[:-1]
     return filtered_chars
 
 # Get the amount of objects this object represents
@@ -37,23 +23,8 @@ def get_depth(object):
         return 1
     return sum(map(get_depth, object.contained_blocks)) + 1
 
-# Begging forgiveness 🥺
-def is_number(string):
-    try:
-        float(string)
-        return True
-    except:
-        return False
-
 def set_type(object, type):
     copy = deepcopy(object)
     copy.type = type
 
     return copy
-
-# Prevent PLY warning/error logs from showing (so smart!)
-class _NullBuffer:
-    def write(self, *args, **kwargs):
-        ...
-
-NullBuffer = PlyLogger(_NullBuffer)

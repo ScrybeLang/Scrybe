@@ -5,7 +5,7 @@ from .. import utils
 from ..logger import code_error, set_lexpos
 from ..scriptparser.parser import (p_number, p_boolean, p_list, p_expression_list,
                                    p_single_type, p_type_declaration,
-                                   p_numerical_binop, p_logical_binop, p_concatenation)
+                                   p_concatenation, p_numerical_operation, p_comparison_operation, p_logical_operation)
 
 precedence = (
     ("left", "OR"),
@@ -71,28 +71,18 @@ def p_variable(prod):
     }
 
 def p_expression(prod):
-    """expression : numerical_binop
-                  | MINUS expression %prec UMINUS
-                  | LPAREN expression RPAREN
-                  | variable
+    """expression : number
                   | STRING
-                  | number
-                  | logical_binop
                   | boolean
-                  | concatenation"""
+                  | variable
+                  | concatenation
+                  | numerical_operation
+                  | comparison_operation
+                  | logical_operation
+                  | LPAREN expression RPAREN"""
     if len(prod) == 2:
         prod[0] = prod[1]
-    elif len(prod) == 3:
-        # Unary minus
-        if utils.is_number(prod[2]):
-            prod[0] = -prod[2]
-        else:
-            prod[0] = {
-                "lexpos":     prod[2]["lexpos"] if isinstance(prod[2], dict) else parser.symstack[-1].lexpos + 2,
-                "type":       "unary minus",
-                "expression": prod[2]
-            }
-    elif prod[1] == "(" and prod[3] == ")":
+    else:
         # Expression wrapped in parentheses
         prod[0] = prod[2]
 
@@ -137,7 +127,7 @@ def p_error(token):
 
     exit()
 
-parser = yacc.yacc(debug=False, optimize=True, errorlog=utils.NullBuffer)
+parser = yacc.yacc(debug=False, optimize=True)
 
 def parse_file():
     return parser.parse(filestate.read_file(), lexer=lexer)

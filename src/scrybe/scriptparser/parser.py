@@ -18,6 +18,8 @@ precedence = (
     ("right", "UMINUS")
 )
 
+# Program structure
+
 def p_program(prod):
     """program : meta_declaration_list top_level_statement_list
                | meta_declaration_list
@@ -91,15 +93,17 @@ def p_top_level_statement(prod):
                            | function_dec"""
     prod[0] = prod[1]
 
-def p_single_statement(prod):
-    """single_statement : set_variable
-                        | in_place_assignment
-                        | index_assign
-                        | function_call"""
+# Inner code statements
+
+def p_fundamental_statement(prod):
+    """fundamental_statement : set_variable
+                             | in_place_assignment
+                             | index_assign
+                             | function_call"""
     prod[0] = prod[1]
 
 def p_statement(prod):
-    """statement : single_statement SEMICOLON
+    """statement : fundamental_statement SEMICOLON
                  | if
                  | if_else
                  | for
@@ -115,6 +119,54 @@ def p_statement_list(prod):
     else:
         prod[0] = [prod[1]] + prod[2]
 
+def p_set_variable(prod):
+    """set_variable : variable type_declaration EQUALS expression
+                    | variable type_declaration EQUALS list"""
+    prod[0] = {
+        "lexpos":        prod[1]["lexpos"],
+        "type":          "assignment",
+        "variable":      prod[1],
+        "variable type": prod[2],
+        "value":         prod[4]
+    }
+
+def p_in_place_assignment(prod):
+    """in_place_assignment : variable PLUSASSIGN expression
+                           | variable MINUSASSIGN expression
+                           | variable TIMESASSIGN expression
+                           | variable DIVIDEDBYASSIGN expression
+                           | variable MODULOASSIGN expression
+                           | variable EXPONENTASSIGN expression
+                           | variable CONCATASSIGN expression"""
+    prod[0] = {
+        "lexpos":    prod[1]["lexpos"],
+        "type":      "in-place assignment",
+        "operation": prod[2],
+        "variable":  prod[1],
+        "operand":   prod[3]
+    }
+
+def p_index_assign(prod):
+    """index_assign : index EQUALS expression"""
+    prod[0] = {
+        "lexpos": prod[1]["lexpos"],
+        "type":   "index assign",
+        "target": prod[1]["target"],
+        "index":  prod[1]["index"],
+        "value":  prod[3]
+    }
+
+def p_function_call(prod):
+    """function_call : variable function_arguments"""
+    prod[0] = {
+        "lexpos":    prod[1]["lexpos"],
+        "type":      "function call",
+        "function":  prod[1],
+        "arguments": prod[2]
+    }
+
+# Data and accessors
+
 def p_number(prod):
     """number : DECIMAL
               | INTEGER"""
@@ -125,13 +177,13 @@ def p_boolean(prod):
                | FALSE"""
     prod[0] = (prod[1] == "true")
 
-def p_expression_list(prod):
-    """expression_list : expression
-                       | expression COMMA expression_list"""
-    if len(prod) == 2:
-        prod[0] = [prod[1]]
+def p_list(prod):
+    """list : LBRACKET expression_list RBRACKET
+            | LBRACKET RBRACKET"""
+    if len(prod) == 4:
+        prod[0] = prod[2]
     else:
-        prod[0] = [prod[1]] + prod[3]
+        prod[0] = []
 
 def p_variable_list(prod):
     """variable_list : VARIABLE
@@ -141,16 +193,8 @@ def p_variable_list(prod):
     else:
         prod[0] = [prod[1]] + prod[3]
 
-def p_list(prod):
-    """list : LBRACKET expression_list RBRACKET
-            | LBRACKET RBRACKET"""
-    if len(prod) == 4:
-        prod[0] = prod[2]
-    else:
-        prod[0] = []
-
 def p_variable(prod):
-    """variable : attribute_of
+    """variable : get_attribute
                 | VARIABLE"""
     if isinstance(prod[1], str):
         prod[0] = {
@@ -177,21 +221,11 @@ def p_index(prod):
         "index":  prod[3]
     }
 
-def p_index_assign(prod):
-    """index_assign : index EQUALS expression"""
-    prod[0] = {
-        "lexpos": prod[1]["lexpos"],
-        "type":   "index assign",
-        "target": prod[1]["target"],
-        "index":  prod[1]["index"],
-        "value":  prod[3]
-    }
-
-def p_attribute_of(prod):
-    """attribute_of : SCRATCH DOT VARIABLE
-                    | THIS DOT VARIABLE
-                    | VARIABLE DOT VARIABLE
-                    | attribute_of DOT VARIABLE"""
+def p_get_attribute(prod):
+    """get_attribute : SCRATCH DOT VARIABLE
+                     | THIS DOT VARIABLE
+                     | VARIABLE DOT VARIABLE
+                     | get_attribute DOT VARIABLE"""
     prod[0] = {
         "lexpos":    prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(1),
         "type":      "get attribute",
@@ -199,91 +233,33 @@ def p_attribute_of(prod):
         "attribute": prod[3]
     }
 
-def p_concatenation(prod):
-    """concatenation : expression CONCAT expression"""
-    prod[0] = {
-        "lexpos":    prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2),
-        "type":      "concatenation",
-        "operand 1": prod[1],
-        "operand 2": prod[3]
-    }
-
-def p_numerical_binop(prod):
-    """numerical_binop : expression PLUS expression
-                       | expression MINUS expression
-                       | expression TIMES expression
-                       | expression DIVIDEDBY expression
-                       | expression MODULO expression
-                       | expression EXPONENT expression"""
-    prod[0] = {
-        "lexpos":    prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2),
-        "type":      "binary operation",
-        "operation": prod[2],
-        "operand 1": prod[1],
-        "operand 2": prod[3]
-    }
-
-def p_logical_binop(prod):
-    """logical_binop : expression LESSTHAN expression
-                     | expression GREATERTHAN expression
-                     | expression LESSTHANEQUAL expression
-                     | expression GREATERTHANEQUAL expression
-                     | expression EQUALTO expression
-                     | expression NOTEQUALTO expression
-                     | expression AND expression
-                     | expression OR expression
-                     | expression IN expression"""
-    prod[0] = {
-        "lexpos":      prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2),
-        "type":        "condition",
-        "condition":   prod[2],
-        "comparand 1": prod[1],
-        "comparand 2": prod[3]
-    }
+def p_expression_list(prod):
+    """expression_list : expression
+                       | expression COMMA expression_list"""
+    if len(prod) == 2:
+        prod[0] = [prod[1]]
+    else:
+        prod[0] = [prod[1]] + prod[3]
 
 def p_expression(prod):
-    """expression : numerical_binop
-                  | MINUS expression %prec UMINUS
-                  | LPAREN expression RPAREN
-                  | function_call
-                  | condition
-                  | concatenation
+    """expression : number
                   | STRING
-                  | number
+                  | boolean
                   | variable
-                  | index"""
+                  | index
+                  | function_call
+                  | concatenation
+                  | numerical_operation
+                  | comparison_operation
+                  | logical_operation
+                  | LPAREN expression RPAREN"""
     if len(prod) == 2:
         prod[0] = prod[1]
-    elif len(prod) == 3:
-        # Unary minus
-        if utils.is_number(prod[2]):
-            # Unary minus on a number is just negation ._.
-            prod[0] = -prod[2]
-        else:
-            prod[0] = {                                                         # ↓ Position of expression
-                "lexpos":     prod[2]["lexpos"] if isinstance(prod[2], dict) else parser.symstack[-1].lexpos + 2,
-                "type":       "unary minus",
-                "expression": prod[2]
-            }
-    elif prod[1] == "(" and prod[3] == ")":
+    else:
         # Expression wrapped in parentheses
         prod[0] = prod[2]
 
-def p_in_place_assignment(prod):
-    """in_place_assignment : variable PLUSASSIGN expression
-                           | variable MINUSASSIGN expression
-                           | variable TIMESASSIGN expression
-                           | variable DIVIDEDBYASSIGN expression
-                           | variable MODULOASSIGN expression
-                           | variable EXPONENTASSIGN expression
-                           | variable CONCATASSIGN expression"""
-    prod[0] = {
-        "lexpos":    prod[1]["lexpos"],
-        "type":      "in-place assignment",
-        "operation": prod[2],
-        "variable":  prod[1],
-        "operand":   prod[3]
-    }
+# Types
 
 def p_single_type(prod):
     """single_type : NUMTYPE
@@ -307,39 +283,61 @@ def p_type_declaration(prod):
     else:
         prod[0] = Types.LIST
 
-def p_set_variable(prod):
-    """set_variable : variable type_declaration EQUALS expression
-                    | variable type_declaration EQUALS list"""
+# Operations
+
+def p_concatenation(prod):
+    """concatenation : expression CONCAT expression"""
     prod[0] = {
-        "lexpos":        prod[1]["lexpos"],
-        "type":          "assignment",
-        "variable":      prod[1],
-        "variable type": prod[2],
-        "value":         prod[4]
+        "lexpos":    prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2),
+        "type":      "concatenation",
+        "operands":  [prod[1], prod[3]]
     }
 
-def p_function_call(prod):
-    """function_call : variable function_arguments"""
+def p_numerical_operation(prod):
+    """numerical_operation : expression PLUS expression
+                           | expression MINUS expression
+                           | expression TIMES expression
+                           | expression DIVIDEDBY expression
+                           | expression MODULO expression
+                           | expression EXPONENT expression
+                           | MINUS expression %prec UMINUS"""
+    prod[0] = {
+        "lexpos":    prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2),
+        "type":      "numerical operation",
+        "operation": prod[2] if len(prod) == 4 else "negation",
+        "operands":  [prod[1], prod[3]] if len(prod) == 4 else [prod[2]]
+    }
+
+def p_comparison_operation(prod):
+    """comparison_operation : expression LESSTHAN expression
+                            | expression GREATERTHAN expression
+                            | expression LESSTHANEQUAL expression
+                            | expression GREATERTHANEQUAL expression
+                            | expression EQUALTO expression
+                            | expression NOTEQUALTO expression"""
     prod[0] = {
         "lexpos":    prod[1]["lexpos"],
-        "type":      "function call",
-        "function":  prod[1],
-        "arguments": prod[2]
+        "type":      "comparison operation",
+        "condition": prod[2],
+        "operands":  [prod[1], prod[3]]
     }
 
-def p_condition(prod):
-    """condition : logical_binop
-                 | NOT expression
-                 | boolean"""
+def p_logical_operation(prod):
+    """logical_operation : NOT expression
+                         | expression AND expression
+                         | expression OR expression
+                         | expression IN expression"""
+    prod[0] = {"type": "logical operation"}
     if len(prod) == 3:
-        prod[0] = {
-            "lexpos":    prod[2]["lexpos"] if isinstance(prod[2], dict) else prod.lexpos(1),
-            "type":      "condition",
-            "condition": "not",
-            "comparand": prod[2]
-        }
+        prod[0]["lexpos"] = prod.lexpos(1)
+        prod[0]["condition"] = prod[1]
+        prod[0]["comparands"] = [prod[2]]
     else:
-        prod[0] = prod[1]
+        prod[0]["lexpos"] = prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(2)
+        prod[0]["condition"] = prod[2]
+        prod[0]["comparands"] = [prod[1], prod[3]]
+
+# Control flow
 
 def p_container_body(prod):
     """container_body : statement
@@ -372,7 +370,7 @@ def p_if_else(prod):
     }
 
 def p_for(prod):
-    """for : FOR LPAREN set_variable SEMICOLON expression SEMICOLON single_statement RPAREN container_body"""
+    """for : FOR LPAREN set_variable SEMICOLON expression SEMICOLON fundamental_statement RPAREN container_body"""
     prod[0] = {
         "lexpos":         prod.lexpos(1),
         "type":           "for",
@@ -391,15 +389,21 @@ def p_while(prod):
         "body":       prod[5]
     }
 
-def p_hat(prod):
-    """hat : variable function_arguments container_body"""
+def p_return(prod):
+    """return : RETURN SEMICOLON
+              | RETURN expression SEMICOLON"""
+    if len(prod) == 3:
+        expression = None
+    else:
+        expression = prod[2]
+
     prod[0] = {
-        "lexpos":     prod[1]["lexpos"],
-        "type":       "hat",
-        "event":      prod[1],
-        "arguments":  prod[2],
-        "body":       prod[3]
+        "lexpos":     prod.lexpos(1),
+        "type":       "return",
+        "expression": expression
     }
+
+# Functions
 
 def p_function_arguments(prod):
     """function_arguments : LPAREN RPAREN
@@ -416,20 +420,6 @@ def p_function_parameters(prod):
         prod[0] = []
     else:
         prod[0] = prod[2]
-
-def p_return(prod):
-    """return : RETURN SEMICOLON
-              | RETURN expression SEMICOLON"""
-    if len(prod) == 3:
-        expression = None
-    else:
-        expression = prod[2]
-
-    prod[0] = {
-        "lexpos":     prod.lexpos(1),
-        "type":       "return",
-        "expression": expression
-    }
 
 def p_function_dec(prod):
     """function_dec : FUNCTION VARIABLE function_parameters container_body
@@ -453,6 +443,18 @@ def p_function_dec(prod):
         "warp":        warp,
         "body":        body
     }
+
+def p_hat(prod):
+    """hat : variable function_arguments container_body"""
+    prod[0] = {
+        "lexpos":     prod[1]["lexpos"],
+        "type":       "hat",
+        "event":      prod[1],
+        "arguments":  prod[2],
+        "body":       prod[3]
+    }
+
+# Parser setup
 
 def p_error(token):
     stack = [sym.type for sym in parser.symstack[1:]]
@@ -519,7 +521,7 @@ def p_error(token):
 
     exit()
 
-parser = yacc.yacc(debug=False, optimize=True, errorlog=utils.NullBuffer)
+parser = yacc.yacc(debug=False, optimize=True)
 
 def parse_file():
     return parser.parse(filestate.read_file(), lexer=lexer)

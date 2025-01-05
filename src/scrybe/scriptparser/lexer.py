@@ -6,8 +6,8 @@ tokens = [
     "SPRITENAMEDEC", "COSTUMEDEC", "SOUNDDEC", "XDEC", "YDEC", "VISIBILITYDEC", "SIZEDEC", "DIRECTIONDEC", "DRAGGABLEDEC", "ROTATIONSTYLEDEC", "LAYERDEC",
     "COLON", "SEMICOLON", "VARIABLE", "EQUALS",
     "STRING", "DECIMAL", "INTEGER",
-    "LPAREN", "RPAREN", "LBRACKET", "RBRACKET", "LBRACE", "RBRACE", "DOT", "COMMA", "CONCAT",
-    "PLUS", "MINUS", "TIMES", "DIVIDEDBY", "MODULO", "EXPONENT",
+    "LPAREN", "RPAREN", "LBRACKET", "RBRACKET", "LBRACE", "RBRACE", "DOT", "COMMA",
+    "PLUS", "MINUS", "TIMES", "DIVIDEDBY", "MODULO", "EXPONENT", "CONCAT",
     "PLUSASSIGN", "MINUSASSIGN", "TIMESASSIGN", "DIVIDEDBYASSIGN", "MODULOASSIGN", "EXPONENTASSIGN", "CONCATASSIGN",
     "LESSTHAN", "GREATERTHAN", "LESSTHANEQUAL", "GREATERTHANEQUAL", "EQUALTO", "NOTEQUALTO"
 ]
@@ -60,7 +60,6 @@ t_LBRACE              = r"\{"
 t_RBRACE              = r"\}"
 t_DOT                 = r"\."
 t_COMMA               = r"\,"
-t_CONCAT              = r"\.\."
 
 t_PLUS                = r"\+"
 t_MINUS               = r"\-"
@@ -68,6 +67,7 @@ t_TIMES               = r"\*"
 t_DIVIDEDBY           = r"\/"
 t_MODULO              = r"\%"
 t_EXPONENT            = r"\*\*"
+t_CONCAT              = r"\.\."
 
 t_PLUSASSIGN          = r"\+="
 t_MINUSASSIGN         = r"\-="
