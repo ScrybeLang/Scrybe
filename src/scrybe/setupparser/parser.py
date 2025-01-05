@@ -2,7 +2,7 @@ from ply import yacc
 from .lexer import lexer, tokens
 from .. import filestate
 from .. import utils
-from ..logger import code_error, set_lexpos
+from ..logger import debug, code_error, set_lexpos
 from ..scriptparser.parser import (p_number, p_boolean, p_list, p_expression_list,
                                    p_single_type, p_type_declaration,
                                    p_concatenation, p_numerical_operation, p_comparison_operation, p_logical_operation)
@@ -127,6 +127,7 @@ def p_error(token):
 
     exit()
 
+debug("Initializing setup parser")
 parser = yacc.yacc(debug=False, optimize=True)
 
 def parse_file():

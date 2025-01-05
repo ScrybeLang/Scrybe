@@ -1,5 +1,3 @@
-from .setupparser import parse_file as parse_setup
-from .scriptparser import parse_file as parse_script
 from .builder import ProjectBuilder
 from .logger import log_prefixes, logger, debug, info, warn, error
 from . import filestate
@@ -32,6 +30,9 @@ def main():
 
     logger.log_level = log_level
     logger.color     = color
+
+    from .setupparser import parse_file as parse_setup
+    from .scriptparser import parse_file as parse_script
 
     # Makes accessing file paths easier
     debug(f'Changing running directory to {project_path}')

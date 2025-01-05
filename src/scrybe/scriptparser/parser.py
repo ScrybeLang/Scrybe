@@ -2,7 +2,7 @@ from ply import yacc
 from .lexer import lexer, tokens, reserved
 from .. import filestate
 from .. import utils
-from ..logger import code_error, set_lexpos
+from ..logger import debug, code_error, set_lexpos
 from ..types import Types
 
 precedence = (
@@ -521,6 +521,7 @@ def p_error(token):
 
     exit()
 
+debug("Initializing script parser")
 parser = yacc.yacc(debug=False, optimize=True)
 
 def parse_file():
