@@ -4,7 +4,7 @@ from .. import filestate
 from .. import utils
 from ..logger import debug, code_error, set_lexpos
 from ..scriptparser.parser import (p_number, p_boolean, p_list, p_expression_list,
-                                   p_single_type, p_type_declaration,
+                                   p_type, p_type_declaration,
                                    p_concatenation, p_numerical_operation, p_comparison_operation, p_logical_operation)
 
 precedence = (

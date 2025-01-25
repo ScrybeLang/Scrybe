@@ -88,7 +88,8 @@ def p_top_level_statement_list(prod):
         prod[0] = [prod[1]] + prod[2]
 
 def p_top_level_statement(prod):
-    """top_level_statement : set_variable SEMICOLON
+    """top_level_statement : declare_variable SEMICOLON
+                           | set_variable SEMICOLON
                            | hat
                            | function_dec"""
     prod[0] = prod[1]
@@ -96,9 +97,9 @@ def p_top_level_statement(prod):
 # Inner code statements
 
 def p_fundamental_statement(prod):
-    """fundamental_statement : set_variable
+    """fundamental_statement : declare_variable
+                             | set_variable
                              | in_place_assignment
-                             | index_assign
                              | function_call"""
     prod[0] = prod[1]
 
@@ -119,15 +120,26 @@ def p_statement_list(prod):
     else:
         prod[0] = [prod[1]] + prod[2]
 
-def p_set_variable(prod):
-    """set_variable : variable type_declaration EQUALS expression
-                    | variable type_declaration EQUALS list"""
+def p_declare_variable(prod):
+    """declare_variable : variable type_declaration EQUALS expression
+                        | variable type_declaration EQUALS list
+                        | variable type_declaration"""
     prod[0] = {
         "lexpos":        prod[1]["lexpos"],
-        "type":          "assignment",
+        "type":          "declare variable",
         "variable":      prod[1],
         "variable type": prod[2],
-        "value":         prod[4]
+        "value":         prod[4] if len(prod) > 3 else None
+    }
+
+def p_set_variable(prod):
+    """set_variable : variable EQUALS expression
+                    | variable EQUALS list"""
+    prod[0] = {
+        "lexpos":        prod[1]["lexpos"],
+        "type":          "set variable",
+        "variable":      prod[1],
+        "value":         prod[3]
     }
 
 def p_in_place_assignment(prod):
@@ -144,16 +156,6 @@ def p_in_place_assignment(prod):
         "operation": prod[2],
         "variable":  prod[1],
         "operand":   prod[3]
-    }
-
-def p_index_assign(prod):
-    """index_assign : index EQUALS expression"""
-    prod[0] = {
-        "lexpos": prod[1]["lexpos"],
-        "type":   "index assign",
-        "target": prod[1]["target"],
-        "index":  prod[1]["index"],
-        "value":  prod[3]
     }
 
 def p_function_call(prod):
@@ -194,43 +196,36 @@ def p_variable_list(prod):
         prod[0] = [prod[1]] + prod[3]
 
 def p_variable(prod):
-    """variable : get_attribute
-                | VARIABLE"""
-    if isinstance(prod[1], str):
-        prod[0] = {
-            "lexpos":   prod.lexpos(1),
-            "type":     "variable",
+    """variable : SCRATCH DOT VARIABLE
+                | THIS DOT VARIABLE
+                | variable DOT VARIABLE
+                | VARIABLE
+                | index"""
+    lexpos = prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(1)
+
+    if len(prod) == 2:
+        if isinstance(prod[1], dict): prod[0] = prod[1]
+        else:
+            prod[0] = {
+            "lexpos":   lexpos,
+            "type":    "variable",
             "variable": prod[1]
         }
     else:
-        prod[0] = prod[1]
+        prod[0] = {
+            "lexpos":    lexpos,
+            "type":      "get attribute",
+            "object":    prod[1],
+            "attribute": prod[3]
+        }
 
 def p_index(prod):
-    """index : expression LBRACKET expression RBRACKET"""
-    if isinstance(prod[1], dict):
-        lexpos = prod[1]["lexpos"]
-    elif hasattr(parser.symstack[-1], "lexpos"):
-        lexpos = parser.symstack[-1].lexpos
-    else:
-        lexpos = parser.symstack[-1].value["lexpos"]
-
+    """index : variable LBRACKET expression RBRACKET"""
     prod[0] = {
-        "lexpos": lexpos,
+        "lexpos": prod[1]["lexpos"],
         "type":   "index",
         "target": prod[1],
         "index":  prod[3]
-    }
-
-def p_get_attribute(prod):
-    """get_attribute : SCRATCH DOT VARIABLE
-                     | THIS DOT VARIABLE
-                     | VARIABLE DOT VARIABLE
-                     | get_attribute DOT VARIABLE"""
-    prod[0] = {
-        "lexpos":    prod[1]["lexpos"] if isinstance(prod[1], dict) else prod.lexpos(1),
-        "type":      "get attribute",
-        "object":    prod[1],
-        "attribute": prod[3]
     }
 
 def p_expression_list(prod):
@@ -246,7 +241,6 @@ def p_expression(prod):
                   | STRING
                   | boolean
                   | variable
-                  | index
                   | function_call
                   | concatenation
                   | numerical_operation
@@ -261,11 +255,11 @@ def p_expression(prod):
 
 # Types
 
-def p_single_type(prod):
-    """single_type : NUMTYPE
-                   | STRTYPE
-                   | BOOLTYPE
-                   | VARTYPE"""
+def p_type(prod):
+    """type : NUMTYPE
+            | STRTYPE
+            | BOOLTYPE
+            | VARTYPE"""
     match prod[1]:
         case "num":  prod[0] = Types.NUMBER
         case "str":  prod[0] = Types.STRING
@@ -273,12 +267,9 @@ def p_single_type(prod):
         case "var":  prod[0] = Types.GENERAL
 
 def p_type_declaration(prod):
-    """type_declaration : COLON single_type
-                        | LBRACKET RBRACKET
-                        | """
-    if len(prod) == 1:
-        prod[0] = Types.GENERAL
-    elif prod[1] == ":":
+    """type_declaration : COLON type
+                        | LBRACKET RBRACKET"""
+    if prod[1] == ":":
         prod[0] = prod[2]
     else:
         prod[0] = Types.LIST
@@ -423,9 +414,9 @@ def p_function_parameters(prod):
 
 def p_function_dec(prod):
     """function_dec : FUNCTION VARIABLE function_parameters container_body
-                    | single_type FUNCTION VARIABLE function_parameters container_body
+                    | type FUNCTION VARIABLE function_parameters container_body
                     | WARP FUNCTION VARIABLE function_parameters container_body
-                    | WARP single_type FUNCTION VARIABLE function_parameters container_body"""
+                    | WARP type FUNCTION VARIABLE function_parameters container_body"""
     warp = prod[1] == "warp"
     is_long = len(prod) == (7 if warp else 6)
 
@@ -512,9 +503,9 @@ def p_error(token):
     if current_token == "SEMICOLON":
         code_error("Unexpected semicolon")
 
-    print("Uncaught script parsing code_error, please report in the repository")
+    print("Uncaught script parsing error, please report in the repository")
     print("-" * 50)
-    print(f"Syntax code_error at line {token.lineno if token else 'EOF'}")
+    print(f"Syntax error at line {token.lineno if token else 'EOF'}")
     print(f"Token: {current_token}")
     print(f"Expected: {', '.join(expected)}")
     print(f"Symbol stack (state {state}): {stack}")
@@ -522,7 +513,7 @@ def p_error(token):
     exit()
 
 debug("Initializing script parser")
-parser = yacc.yacc(debug=False, optimize=True)
+parser = yacc.yacc(debug=True)
 
 def parse_file():
     return parser.parse(filestate.read_file(), lexer=lexer)

@@ -60,7 +60,10 @@ class ScriptBuilder(CodeBuilder):
             case "logical operation":    translation_function = self.translate_logical_operation
 
             case "get attribute":        translation_function = self.translate_attribute
-            case "variable":             return self.resolve_data_name(expression["variable"])
+            case "variable":
+                # Boolean variables have to have a boolean shape
+                variable_object = self.resolve_data_name(expression["variable"])
+                return Equals(variable_object, 1) if variable_object.type == Types.BOOLEAN else variable_object
 
         return translation_function(expression)
 
@@ -213,9 +216,9 @@ class ScriptBuilder(CodeBuilder):
             set_lexpos(statement["lexpos"])
 
             match statement["type"]:
-                case "assignment":          application_function = self.apply_variable_setter
+                case "declare variable":    application_function = self.apply_declare_variable
+                case "set variable":        application_function = self.apply_set_variable
                 case "in-place assignment": application_function = self.apply_in_place_assignment
-                case "index assign":        application_function = self.apply_index_assignment
                 case "function call":       application_function = self.apply_function_call
                 case "if":                  application_function = self.apply_if
                 case "if-else":             application_function = self.apply_if_else
@@ -227,53 +230,74 @@ class ScriptBuilder(CodeBuilder):
 
         return self.remove_from_stack(modify_scope)
 
-    def apply_variable_setter(self, statement):
-        to_assign = statement["variable"]
-        variable_value = self.translate_expression(statement["value"])
-
-        set_lexpos(to_assign["lexpos"])
-
-        # For things like `this.size = 50`
-        if to_assign["type"] == "get attribute":
-            self.current_script.append(self.get_builtin(
-                to_assign,
-                translations.resolve_setter,
-                "attribute"
-            )(variable_value))
-            return
-
-        # User-defined variables
-        variable_name = to_assign["variable"]
-        variable_object = self.resolve_data_name(variable_name, allow_nonexistent=True)
-
-        # Check variable type against value type
-        statement_variable_type = statement["variable type"]
-        if variable_object:
-            # Check that the variable isn't being redeclared as something different
-            variable_type = variable_object.type
-            if statement_variable_type != variable_type and statement_variable_type != Types.GENERAL:
-                code_error(f"Cannot redeclare a {repr(variable_type)} as a {repr(statement_variable_type)}")
-        else:
-            variable_type = statement_variable_type
+    def apply_variable_setter(self, variable_object, variable_value):
+        variable_type = Types.get_type(variable_object)
         self._check_assignment_types(variable_type, variable_value)
 
-        if not variable_object:
-            # Variable doesn't exist yet, create and set it
-            match variable_type:
-                case Types.NUMBER:  initial_value = 0
-                case Types.STRING:  initial_value = ""
-                case Types.BOOLEAN: initial_value = False
-                case Types.GENERAL: initial_value = ""
-                case Types.LIST:    initial_value = []
-
-            variable_object = self.add_variable(variable_name, variable_type, initial_value)
-
-        if variable_object.type == Types.LIST:
+        if variable_type == Types.LIST:
             self.current_script.append(ClearList(variable_object))
             self.current_script.extend(AddToList(item, variable_object) for item in variable_value)
         else:
             self.current_script.append(SetVariable(variable_object, variable_value))
 
+    def apply_declare_variable(self, statement):
+        variable_name = statement["variable"]["variable"]
+        if self.resolve_data_name(variable_name, allow_nonexistent=True):
+            code_error("Cannot redeclare a variable")
+
+        declared_type = statement["variable type"]
+        variable_value = statement["value"]
+        # Get default value
+        match declared_type:
+            case Types.NUMBER:  default_value = 0
+            case Types.STRING:  default_value = ""
+            case Types.BOOLEAN: default_value = False
+            case Types.GENERAL: default_value = ""
+            case Types.LIST:    default_value = []
+        if variable_value is None:
+            variable_value = default_value
+        variable_value = self.translate_expression(variable_value)
+
+        variable_object = self.add_variable(variable_name, declared_type, default_value)
+        self.apply_variable_setter(variable_object, variable_value)
+
+    def apply_set_variable(self, statement):
+        to_assign = statement["variable"]
+        set_lexpos(to_assign["lexpos"])
+
+        variable_value = self.translate_expression(statement["value"])
+
+        # For things like `this.size = 50`
+        if to_assign["type"] == "get attribute":
+            builtin = self.get_builtin(to_assign, translations.resolve_setter, "attribute")
+            self.current_script.append(builtin(variable_value))
+            return
+
+        if to_assign["type"] == "index":
+            target = self.translate_expression(to_assign["target"])
+            index = self.translate_expression(to_assign["index"])
+            value = self.translate_expression(statement["value"])
+
+            Types.check_types([[Types.LIST], [Types.STRING]], [target],
+                "Index target must be a string/list, not a {}")
+            Types.check_types([[Types.NUMBER]], [index],
+                "Index must be a number, not a {}")
+            if isinstance(index, int) and index < 0 or isinstance(index, float):
+                code_error("Literal indices must be positive integers")
+
+            self.current_script.append(ReplaceInList(index + 1, target, value))
+            return
+
+        # User-defined variables
+        variable_name = to_assign["variable"]
+        variable_object = self.resolve_data_name(variable_name, allow_nonexistent=True)
+        if not variable_object:
+            code_error("Cannot assign to undeclared variable")
+
+        self.apply_variable_setter(variable_object, variable_value)
+
+    # TODO: Refactor this after implementing variable registry
+    # Also, `my_list[0] += my_list` should not work
     def apply_in_place_assignment(self, statement):
         operation_type = statement["operation"][:-1] # Cut off the trailing equals sign
         operation = Join if operation_type == ".." else translations.numerical_operations[operation_type]
@@ -283,29 +307,29 @@ class ScriptBuilder(CodeBuilder):
 
         if to_assign["type"] == "variable":
             variable_object = self.resolve_data_name(to_assign["variable"])
-            self.current_script.append(SetVariable(variable_object, operation(variable_object, operand)))
+            new_value = operation(variable_object, operand)
+
+            self._check_assignment_types(Types.get_type(variable_object), new_value)
+            self.current_script.append(SetVariable(variable_object, new_value))
+
+        if to_assign["type"] == "index":
+            list_object = self.resolve_data_name(to_assign["target"]["variable"])
+            index = self.translate_expression(to_assign["index"]) + 1
+
+            Types.check_types([[Types.LIST]], [list_object],
+                "Index target must be a list, not a {}")
+            list_item = ItemOfList(index, list_object)
+            new_value = operation(list_item, operand)
+            self.current_script.append(ReplaceInList(index, list_object, new_value))
 
         if to_assign["type"] == "get attribute":
             # For things like `this.x += 10`
-            setter_function = self.get_builtin(
-                to_assign,
-                translations.resolve_setter,
-                "attribute"
-            )
+            setter_function = self.get_builtin(to_assign, translations.resolve_setter, "attribute")
+            reporter_object = translations.resolve_reporter(to_assign)[0]()
+            new_value = operation(reporter_object, operand)
 
-            new_value = operation(translations.resolve_reporter(to_assign)[0](), operand)
+            self._check_assignment_types(Types.get_type(reporter_object), new_value)
             self.current_script.append(setter_function(new_value))
-
-    def apply_index_assignment(self, statement):
-        target = self.translate_expression(statement["target"])
-        index = self.translate_expression(statement["index"])
-        value = self.translate_expression(statement["value"])
-
-        self.check_index_types(target, index)
-        Types.check_types([[Types.LIST]], [target],
-            "Can only change items in a list, not a {}")
-
-        self.current_script.append(ReplaceInList(index + 1, target, value))
 
     def apply_function_call(self, statement):
         function = statement["function"]
@@ -425,7 +449,7 @@ class ScriptBuilder(CodeBuilder):
         # The iteration variable must be set in the next scope
         self.enter_scope()
 
-        self.apply_variable_setter(initializer_statement)
+        self.apply_declare_variable(initializer_statement)
         statements = self.build_inner_statements(
             [*body, post_iteration_statement],
             modify_scope = False # Avoid changing the current scope
