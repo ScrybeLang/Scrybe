@@ -227,6 +227,26 @@ def _tostr(object):
 
     return str(object)
 
+def _tobool(object):
+    Types.check_types(
+        [[Types.NUMBER], [Types.STRING], [Types.BOOLEAN], [Types.LIST]],
+        [object],
+        "Cannot convert a {} to a boolean"
+    )
+
+    if isinstance(object, (int, float, str)):
+        return Equals(int(bool(object)), 1)
+
+    if isinstance(object, (Block, DataContainer)):
+        match Types.get_type(object):
+            case Types.NUMBER:  return Not(Equals(object, 0))
+            case Types.STRING:  return GreaterThan(LengthOf(object), 0)
+            case Types.LIST:    return GreaterThan(ListLength(object), 0)
+            case Types.GENERAL:
+                code_error("Cannot convert a general variable to a boolean")
+
+    return object
+
 function_reporters = {
     "scratch": {
         "key_pressed":          (KeyPressed,   False),
@@ -264,7 +284,8 @@ function_reporters = {
     },
 
     "tonum":                    (_tonum, False),
-    "tostr":                    (_tostr, False)
+    "tostr":                    (_tostr, False),
+    "tobool":                   (_tobool, False)
 }
 
 # `set_effect`/`change_effect` is only one function but can translate to
