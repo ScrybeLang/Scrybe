@@ -28,6 +28,7 @@ reserved = {
     "warp":     "WARP",
     "function": "FUNCTION",
     "return":   "RETURN",
+    "const":    "CONST",
     "num":      "NUMTYPE",
     "str":      "STRTYPE",
     "bool":     "BOOLTYPE",

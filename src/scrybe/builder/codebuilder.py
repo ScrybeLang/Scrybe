@@ -22,7 +22,7 @@ class CodeBuilder(ABC):
         ...
 
     @abstractmethod
-    def add_variable(self, variable_name, variable_type, variable_value):
+    def add_variable(self, variable_name, variable_type, variable_value, is_const=False, target=None):
         ...
 
     @abstractmethod

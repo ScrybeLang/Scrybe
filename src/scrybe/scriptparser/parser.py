@@ -123,14 +123,28 @@ def p_statement_list(prod):
 def p_declare_variable(prod):
     """declare_variable : variable type_declaration EQUALS expression
                         | variable type_declaration EQUALS list
-                        | variable type_declaration"""
-    prod[0] = {
-        "lexpos":        prod[1]["lexpos"],
-        "type":          "declare variable",
-        "variable":      prod[1],
-        "variable type": prod[2],
-        "value":         prod[4] if len(prod) > 3 else None
-    }
+                        | variable type_declaration
+                        | CONST variable type_declaration EQUALS expression
+                        | CONST variable type_declaration EQUALS list
+                        | CONST variable type_declaration"""
+    if prod[1] == "const":
+        prod[0] = {
+            "lexpos":        prod.lexpos(1),
+            "type":          "declare variable",
+            "variable":      prod[2],
+            "variable type": prod[3],
+            "value":         prod[5] if len(prod) > 4 else None,
+            "constant":      True
+        }
+    else:
+        prod[0] = {
+            "lexpos":        prod[1]["lexpos"],
+            "type":          "declare variable",
+            "variable":      prod[1],
+            "variable type": prod[2],
+            "value":         prod[4] if len(prod) > 3 else None,
+            "constant":      False
+        }
 
 def p_set_variable(prod):
     """set_variable : variable EQUALS expression

@@ -150,7 +150,7 @@ class ScriptBuilder(CodeBuilder):
 
         return callable_object
 
-    def add_variable(self, variable_name, variable_type, variable_value):
+    def add_variable(self, variable_name, variable_type, variable_value, is_const=False):
         prefix = self.variable_prefix
         current_scope = self.current_scope_ID
         if current_scope > 0:
@@ -160,7 +160,7 @@ class ScriptBuilder(CodeBuilder):
 
         return self.projectbuilder.add_variable(
             variable_name, variable_type, variable_value,
-            self.target
+            is_const, self.target
         )
 
     def resolve_data_name(self, data_name, allow_nonexistent=False):
@@ -257,8 +257,9 @@ class ScriptBuilder(CodeBuilder):
         if variable_value is None:
             variable_value = default_value
         variable_value = self.translate_expression(variable_value)
+        is_const = statement["constant"]
 
-        variable_object = self.add_variable(variable_name, declared_type, default_value)
+        variable_object = self.add_variable(variable_name, declared_type, default_value, is_const)
         self.apply_variable_setter(variable_object, variable_value)
 
     def apply_set_variable(self, statement):
@@ -275,6 +276,8 @@ class ScriptBuilder(CodeBuilder):
 
         if to_assign["type"] == "index":
             target = self.translate_expression(to_assign["target"])
+            if target.constant:
+                code_error("Cannot assign to constant")
             index = self.translate_expression(to_assign["index"])
             value = self.translate_expression(statement["value"])
 
@@ -293,6 +296,8 @@ class ScriptBuilder(CodeBuilder):
         variable_object = self.resolve_data_name(variable_name, allow_nonexistent=True)
         if not variable_object:
             code_error("Cannot assign to undeclared variable")
+        if variable_object.constant:
+            code_error("Cannot assign to constant")
 
         self.apply_variable_setter(variable_object, variable_value)
 
@@ -307,6 +312,8 @@ class ScriptBuilder(CodeBuilder):
 
         if to_assign["type"] == "variable":
             variable_object = self.resolve_data_name(to_assign["variable"])
+            if variable_object.constant:
+                code_error("Cannot assign to constant")
             new_value = operation(variable_object, operand)
 
             self._check_assignment_types(Types.get_type(variable_object), new_value)
@@ -314,6 +321,8 @@ class ScriptBuilder(CodeBuilder):
 
         if to_assign["type"] == "index":
             list_object = self.resolve_data_name(to_assign["target"]["variable"])
+            if list_object.constant:
+                code_error("Cannot assign to constant")
             index = self.translate_expression(to_assign["index"]) + 1
 
             Types.check_types([[Types.LIST]], [list_object],

@@ -66,12 +66,13 @@ class ProjectBuilder:
         SetupBuilder(self, setup_ast["variables"]).build()
 
     # `variable_name` should already be scope formatted
-    def add_variable(self, variable_name, variable_type, variable_value, target=None):
+    def add_variable(self, variable_name, variable_type, variable_value, is_const=False, target=None):
         target = target or self.project.stage
 
         function = target.createList if variable_type == Types.LIST else target.createVariable
         variable_object = function(variable_name, variable_value)
         variable_object.type = variable_type
+        variable_object.constant = is_const
         variable_type = repr(variable_type)
 
         if variable_name.startswith("g_") or variable_name.startswith("br_"):

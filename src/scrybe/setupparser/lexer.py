@@ -25,6 +25,7 @@ reserved = {
     "in":      "IN",
     "true":    "TRUE",
     "false":   "FALSE",
+    "const":   "CONST",
     "num":     "NUMTYPE",
     "str":     "STRTYPE",
     "bool":    "BOOLTYPE",
